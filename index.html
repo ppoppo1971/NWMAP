@@ -60,7 +60,8 @@ a[href^="https://maps.google.com/maps"],
 
 #zoom-controls {
   position: absolute;
-  bottom: max(10px, env(safe-area-inset-bottom));
+  /* 축소 버튼 반지름(약 22px)만큼 위로 올림 */
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 22px);
   left: max(10px, env(safe-area-inset-left));
   z-index: 18;
   display: flex;
@@ -97,7 +98,7 @@ a[href^="https://maps.google.com/maps"],
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 @media (max-width: 480px) {
-  #zoom-controls { bottom: 10px; left: 10px; gap: 6px; }
+  #zoom-controls { bottom: 32px; left: 10px; gap: 6px; }
   #zoom-in-btn, #zoom-out-btn { width: 37px; height: 37px; font-size: 1.3rem; }
 }
 
@@ -172,32 +173,48 @@ a[href^="https://maps.google.com/maps"],
 
 #project-sites-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 
-/* 동기화 토스트 (wmap 스타일, 화면 하단 중앙) */
+/* 동기화 토스트 (성공/실패 공용 베이스) */
 #sync-badge {
   position: fixed;
-  bottom: max(16px, env(safe-area-inset-bottom) + 8px);
   left: 50%;
-  transform: translateX(-50%) translateY(12px);
   z-index: 40;
   padding: 8px 16px;
   border-radius: 9999px;
-  background: #065f46;
-  color: #ecfdf5;
   font-size: 0.85rem;
   font-weight: 600;
   white-space: nowrap;
   box-shadow: 0 10px 25px rgba(0,0,0,0.3);
   opacity: 0;
   transition: opacity 0.25s ease, transform 0.25s ease;
-  pointer-events: none;
 }
 #sync-badge.hide {
   opacity: 0;
-  transform: translateX(-50%) translateY(12px);
+  pointer-events: none;
 }
-#sync-badge:not(.hide) {
+
+/* 동기화 성공: 하단 초록 토스트 */
+#sync-badge.success {
+  bottom: max(16px, env(safe-area-inset-bottom) + 8px);
+  transform: translateX(-50%) translateY(12px);
+  background: #065f46;
+  color: #ecfdf5;
+  pointer-events: none;
+}
+#sync-badge.success:not(.hide) {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* 동기화 실패: 화면 중앙 빨간 토스트 (탭으로 닫을 때까지 유지) */
+#sync-badge.error {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: #b91c1c;
+  color: #fee2e2;
+  pointer-events: auto;
+}
+#sync-badge.error:not(.hide) {
+  opacity: 1;
 }
 
 #project-sites-list { min-height: 24px; }
@@ -390,7 +407,7 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0432</div>
+  <div id="version-label" aria-hidden="true">0457</div>
   <div id="app-root">
     <div id="map"></div>
     <button type="button" id="project-btn" title="프로젝트">P</button>

@@ -8,6 +8,7 @@
   var SITES_FIELD = 'customSchedules';
   var _initialSynced = false;
   var _pendingLocalChange = false;
+  var _initialSyncTimeout = null;
 
   function getDocRef() {
     if (!window.db || !window.firestore) return null;
@@ -31,15 +32,35 @@
     if (overlay) overlay.classList.remove('show');
   }
 
-  function showSyncBadge() {
+  function showSyncToast(message, variant, options) {
     var badge = document.getElementById('sync-badge');
     if (!badge) return;
-    badge.classList.remove('hide');
-    badge.textContent = '동기화됨';
+    options = options || {};
+
+    // variant: 'success' | 'error'
+    badge.textContent = message || '';
+    badge.classList.remove('hide', 'success', 'error');
+    if (variant === 'error') {
+      badge.classList.add('error');
+    } else {
+      badge.classList.add('success');
+    }
+
     clearTimeout(badge._hideTimer);
-    badge._hideTimer = setTimeout(function () {
-      badge.classList.add('hide');
-    }, 2500);
+    if (options.autoHide !== false) {
+      var duration = typeof options.duration === 'number' ? options.duration : 2500;
+      badge._hideTimer = setTimeout(function () {
+        badge.classList.add('hide');
+      }, duration);
+    }
+  }
+
+  function showSyncSuccessBadge() {
+    showSyncToast('동기화됨', 'success', { autoHide: true, duration: 2500 });
+  }
+
+  function showSyncErrorBadge() {
+    showSyncToast('동기화 실패', 'error', { autoHide: false });
   }
 
   function renderSitesList(items) {
@@ -65,21 +86,35 @@
       renderSitesList(sites);
 
       var meta = snap.metadata || {};
-      var fromServer = !meta.fromCache;
+      var committed = !meta.hasPendingWrites;
 
-      // 초기 로딩 또는 로컬 변경 직후, 서버에서 최신 스냅샷이 도착했을 때만 동기화 토스트 노출
-      if (fromServer) {
+      // 초기 로딩 또는 로컬 변경 직후, 서버에 커밋된 스냅샷이 도착했을 때만 동기화 토스트 노출
+      if (committed) {
+        if (_initialSyncTimeout) {
+          clearTimeout(_initialSyncTimeout);
+          _initialSyncTimeout = null;
+        }
         if (!_initialSynced) {
           _initialSynced = true;
-          showSyncBadge();
+          showSyncSuccessBadge();
         } else if (_pendingLocalChange) {
           _pendingLocalChange = false;
-          showSyncBadge();
+          showSyncSuccessBadge();
         }
       }
     }, function (err) {
       console.warn('Firestore 현장 목록 구독 실패:', err);
     });
+
+    // 일정 시간 안에 서버 커밋 스냅샷을 받지 못하면 동기화 실패 토스트 표시
+    if (_initialSyncTimeout) {
+      clearTimeout(_initialSyncTimeout);
+    }
+    _initialSyncTimeout = setTimeout(function () {
+      if (!_initialSynced) {
+        showSyncErrorBadge();
+      }
+    }, 7000);
   }
 
   function addNewSite() {
@@ -149,6 +184,15 @@
         if (e.key === 'Enter') {
           e.preventDefault();
           addNewSite();
+        }
+      });
+    }
+
+    var syncBadgeEl = document.getElementById('sync-badge');
+    if (syncBadgeEl) {
+      syncBadgeEl.addEventListener('click', function () {
+        if (syncBadgeEl.classList.contains('error')) {
+          syncBadgeEl.classList.add('hide');
         }
       });
     }
