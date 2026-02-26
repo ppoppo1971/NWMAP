@@ -53,11 +53,28 @@
     </div>
   </div>
 
-  <!-- 전역 설정 → Firebase 초기화(compat 스크립트로 file://·로컬 서버 모두 동작) → 모듈 → 진입점 -->
+  <!-- 전역 설정 → Firebase(WMAP과 동일 모듈 SDK) → 모듈 → 진입점 -->
   <script src="config.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.4.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore-compat.js"></script>
-  <script src="firebase-init.js"></script>
+  <script type="module">
+    (function () {
+      const firebaseConfig = window.MWMAP_CONFIG && window.MWMAP_CONFIG.FIREBASE;
+      if (!firebaseConfig) {
+        window.dispatchEvent(new CustomEvent('firebaseReady'));
+        return;
+      }
+      try {
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js');
+        const app = initializeApp(firebaseConfig);
+        const { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion, onSnapshot, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js');
+        const db = getFirestore(app);
+        window.db = db;
+        window.firestore = { doc, setDoc, getDoc, updateDoc, arrayUnion, onSnapshot, serverTimestamp };
+      } catch (e) {
+        console.warn('Firebase 로드 실패:', e);
+      }
+      window.dispatchEvent(new CustomEvent('firebaseReady'));
+    })();
+  </script>
   <script src="map-init.js"></script>
   <script src="map-search.js"></script>
   <script src="ui-panel.js"></script>

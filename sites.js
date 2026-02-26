@@ -80,18 +80,20 @@
     var newItem = {
       id: 'site_' + Date.now(),
       title: title,
-      timestamp: Date.now(),
+      timestamp: new Date().toISOString(),
       type: 'custom_schedule'
     };
     window.firestore.getDoc(ref).then(function (snap) {
+      var existing = (snap.exists() && snap.data() && snap.data().customSchedules) ? snap.data().customSchedules : [];
+      var updated = [newItem].concat(existing);
       if (!snap.exists()) {
         return window.firestore.setDoc(ref, {
-          customSchedules: [newItem],
+          customSchedules: updated,
           lastUpdated: window.firestore.serverTimestamp()
         });
       }
       return window.firestore.updateDoc(ref, {
-        customSchedules: window.firestore.arrayUnion(newItem),
+        customSchedules: updated,
         lastUpdated: window.firestore.serverTimestamp()
       });
     }).then(function () {
@@ -99,6 +101,7 @@
       showSyncBadge();
     }).catch(function (err) {
       console.error('현장 추가 실패:', err);
+      console.error('Firebase 오류 상세:', err && err.code, err && err.message);
       alert('저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
     });
   }

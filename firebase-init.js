@@ -17,7 +17,9 @@
     return;
   }
   try {
-    firebase.initializeApp(C);
+    if (!firebase.apps || !firebase.apps.length) {
+      firebase.initializeApp(C);
+    }
     var db = firebase.firestore();
     window.db = db;
     window.firestore = {
