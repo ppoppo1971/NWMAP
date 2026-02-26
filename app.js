@@ -23,6 +23,10 @@
     if (MWMAP.mapSearch && MWMAP.mapSearch.bind) MWMAP.mapSearch.bind();
     if (MWMAP.uiPanel && MWMAP.uiPanel.bind) MWMAP.uiPanel.bind();
     if (MWMAP.sites && MWMAP.sites.bind) MWMAP.sites.bind();
+    if (typeof window.__setVh === 'function') {
+      window.__setVh();
+      setTimeout(window.__setVh, 100);
+    }
   }
 
   window.initMap = initMap;
