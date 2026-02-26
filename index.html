@@ -22,17 +22,22 @@ html, body {
   background: #e5e3df;
 }
 #app-root {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: fixed;
+  top: 0;
+  top: env(safe-area-inset-top);
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 #map {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  min-height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   touch-action: manipulation;
 }
 
@@ -363,7 +368,7 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0317</div>
+  <div id="version-label" aria-hidden="true">0301</div>
   <div id="app-root">
     <div id="map"></div>
     <button type="button" id="project-btn" title="프로젝트">P</button>
