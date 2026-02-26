@@ -7,7 +7,374 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>MWMAP - 초기 화면</title>
-  <link rel="stylesheet" href="styles.css">
+  <style>
+/* MWMAP 공통 스타일: 레이아웃, 버튼, 패널, 모달 */
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #e5e3df;
+}
+#app-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+#map {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  touch-action: manipulation;
+}
+
+.gm-style-iw-c .gm-ui-hover-effect,
+.gm-style-iw-tc .gm-ui-hover-effect {
+  display: none !important;
+}
+
+.gm-style .gmnoprint,
+.gm-style .gm-style-cc,
+.gm-style-cc,
+.gm-style a[href^="https://maps.google.com"],
+a[href^="https://maps.google.com/maps"],
+.gmnoprint,
+.gm-bundled-control,
+.gm-svpc,
+.gm-control-active {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+#zoom-controls {
+  position: absolute;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  left: max(10px, env(safe-area-inset-left));
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#zoom-in-btn,
+#zoom-out-btn {
+  background: transparent;
+  color: #333;
+  border: none;
+  border-radius: 50%;
+  width: 45px;
+  height: 45px;
+  font-size: 1.5rem;
+  font-weight: 300;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+#zoom-in-btn:hover,
+#zoom-out-btn:hover {
+  background: rgba(51, 51, 51, 0.1);
+  transform: scale(1.05);
+}
+#zoom-in-btn:active,
+#zoom-out-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+@media (max-width: 480px) {
+  #zoom-controls { bottom: 10px; left: 10px; gap: 6px; }
+  #zoom-in-btn, #zoom-out-btn { width: 37px; height: 37px; font-size: 1.3rem; }
+}
+
+#project-btn {
+  position: absolute;
+  top: max(20px, env(safe-area-inset-top));
+  left: max(15px, env(safe-area-inset-left));
+  z-index: 20;
+  background: rgba(29, 78, 216, 0.5);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s ease;
+}
+#project-btn:active { transform: scale(0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+#project-btn.hide { display: none; }
+
+#project-panel-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 12;
+  background: rgba(0,0,0,0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+#project-panel-overlay.show { opacity: 1; pointer-events: auto; }
+
+#project-panel {
+  position: absolute;
+  top: 20px; left: 15px;
+  z-index: 15;
+  width: 200px;
+  max-width: 85vw;
+  max-height: calc(100vh - 40px);
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  padding: 15px 12px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: all 0.3s ease;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+#project-panel.hide { left: -220px; opacity: 0; pointer-events: none; }
+
+#project-sites-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#project-sites-header .sync-badge {
+  font-size: 0.75rem;
+  color: #059669;
+  background: rgba(209, 250, 229, 0.9);
+  padding: 4px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+#project-sites-header .sync-badge.hide { opacity: 0; pointer-events: none; }
+
+#project-sites-list { min-height: 24px; }
+#project-sites-list .site-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  box-sizing: border-box;
+  text-align: left;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.95rem;
+  line-height: 1.25;
+  color: #1a1a1a;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#add-site-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  margin-top: 4px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+#add-site-btn:hover { transform: translateY(-1px); }
+#add-site-btn:active { transform: translateY(0) scale(0.98); }
+
+#add-site-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1001;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+#add-site-overlay.show { display: flex; }
+#add-site-dialog {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px rgba(0,0,0,0.15);
+  max-width: 320px;
+  width: 100%;
+  padding: 20px;
+}
+#add-site-dialog h3 { margin: 0 0 16px 0; font-size: 1.1rem; color: #1f2937; }
+#add-site-title {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #1a1a1a;
+  font-size: 0.95rem;
+}
+#add-site-submit {
+  width: 100%;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#add-site-submit:active { opacity: 0.9; }
+#project-panel-search { margin-bottom: 4px; }
+#address-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #1a1a1a;
+  font-size: 0.9rem;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+#address-input::placeholder { color: rgba(26, 26, 26, 0.6); }
+
+#address-select-dialog {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.4);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+#address-select-dialog.show { display: flex; }
+#address-select-dialog .dialog-inner {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px rgba(0,0,0,0.15);
+  max-width: 400px;
+  width: 100%;
+  max-height: 70vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+#address-select-dialog .dialog-header {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #fff;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#address-select-dialog .dialog-header h3 { margin: 0; font-size: 1rem; }
+#address-select-dialog .dialog-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+#address-select-list {
+  padding: 12px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#address-select-list .address-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+#address-select-list .address-item:active {
+  background: #f8fafc;
+  border-color: #3b82f6;
+}
+#address-select-list .address-item strong { display: block; margin-bottom: 4px; color: #1f2937; }
+#address-select-list .address-item span { font-size: 0.8rem; color: #6b7280; }
+
+@media (max-width: 480px) {
+  #project-btn { top: max(15px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); width: 44px; height: 44px; font-size: 1.3rem; }
+  #project-panel { top: 15px; left: 10px; }
+  #project-panel.hide { left: -220px; }
+}
+
+@media (display-mode: standalone) {
+  html, body { position: fixed; top: 0; left: 0; width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #e5e3df; }
+  #app-root { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
+  #map {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: constant(safe-area-inset-bottom);
+    box-sizing: border-box !important;
+  }
+}
+@supports (-webkit-touch-callout: none) {
+  body.standalone #map {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: border-box !important;
+  }
+}
+  </style>
 </head>
 <body>
   <script>
@@ -53,26 +420,33 @@
     </div>
   </div>
 
-  <!-- 전역 설정 → Firebase(WMAP과 동일 모듈 SDK) → 모듈 → 진입점 -->
+  <!-- 전역 설정 → Firebase 인라인 → 모듈 → 진입점 (분리 전 구조) -->
   <script src="config.js"></script>
   <script type="module">
     (function () {
-      const firebaseConfig = window.MWMAP_CONFIG && window.MWMAP_CONFIG.FIREBASE;
-      if (!firebaseConfig) {
-        window.dispatchEvent(new CustomEvent('firebaseReady'));
-        return;
-      }
-      try {
-        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js');
-        const app = initializeApp(firebaseConfig);
-        const { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion, onSnapshot, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js');
-        const db = getFirestore(app);
-        window.db = db;
-        window.firestore = { doc, setDoc, getDoc, updateDoc, arrayUnion, onSnapshot, serverTimestamp };
-      } catch (e) {
+      var C = window.MWMAP_CONFIG && window.MWMAP_CONFIG.FIREBASE;
+      if (!C) return;
+      import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js').then(function (m) {
+        return m.initializeApp(C);
+      }).then(function (app) {
+        return import('https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js').then(function (firestore) {
+          var db = firestore.getFirestore(app);
+          window.db = db;
+          window.firestore = {
+            doc: firestore.doc,
+            getDoc: firestore.getDoc,
+            setDoc: firestore.setDoc,
+            updateDoc: firestore.updateDoc,
+            arrayUnion: firestore.arrayUnion,
+            onSnapshot: firestore.onSnapshot,
+            serverTimestamp: firestore.serverTimestamp
+          };
+          window.dispatchEvent(new CustomEvent('firebaseReady'));
+        });
+      }).catch(function (e) {
         console.warn('Firebase 로드 실패:', e);
-      }
-      window.dispatchEvent(new CustomEvent('firebaseReady'));
+        window.dispatchEvent(new CustomEvent('firebaseReady'));
+      });
     })();
   </script>
   <script src="map-init.js"></script>
