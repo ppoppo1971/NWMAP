@@ -421,7 +421,7 @@ a[href^="https://maps.google.com/maps"],
   }
 }
 
-/* PWA(홈 화면 실행) 시 빈 공백 없이 화면 꽉 채우기. 세로: innerHeight가 하단 safe 제외한 값이어서 +env(safe-area-inset-bottom) */
+/* PWA(홈 화면 실행) 시 화면 상단까지 지도 표시 (WMAP 참고) */
 @media (display-mode: standalone) {
   html, body {
     position: fixed;
@@ -429,12 +429,8 @@ a[href^="https://maps.google.com/maps"],
     left: 0;
     width: 100%;
     height: 100%;
-    min-height: -webkit-fill-available;
-    height: var(--vh, 100vh);
-    height: calc(var(--vh, 100vh) + constant(safe-area-inset-bottom));
-    height: calc(var(--vh, 100vh) + env(safe-area-inset-bottom));
-    margin: 0 !important;
-    padding: 0 !important;
+    margin: 0;
+    padding: 0;
     overflow: hidden;
     background: #e5e3df;
   }
@@ -443,27 +439,16 @@ a[href^="https://maps.google.com/maps"],
     top: 0;
     left: 0;
     right: 0;
-    height: 100%;
-    min-height: -webkit-fill-available;
-    height: var(--vh, 100vh);
-    height: calc(var(--vh, 100vh) + constant(safe-area-inset-bottom));
-    height: calc(var(--vh, 100vh) + env(safe-area-inset-bottom));
-    margin: 0;
-    padding: 0;
+    bottom: 0;
   }
   #map {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    min-height: -webkit-fill-available !important;
-    height: var(--vh, 100vh) !important;
-    height: calc(var(--vh, 100vh) + constant(safe-area-inset-bottom)) !important;
-    height: calc(var(--vh, 100vh) + env(safe-area-inset-bottom)) !important;
-    padding: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: constant(safe-area-inset-bottom);
     box-sizing: border-box !important;
   }
 }
@@ -472,15 +457,9 @@ a[href^="https://maps.google.com/maps"],
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    min-height: -webkit-fill-available !important;
-    height: var(--vh, 100vh) !important;
-    height: calc(var(--vh, 100vh) + constant(safe-area-inset-bottom)) !important;
-    height: calc(var(--vh, 100vh) + env(safe-area-inset-bottom)) !important;
-    padding: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom);
     box-sizing: border-box !important;
   }
 }

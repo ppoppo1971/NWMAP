@@ -13,32 +13,6 @@
   <script>
     (function(){ if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) document.body.classList.add('standalone'); })();
   </script>
-  <script>
-    (function () {
-      var isStandalone = window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone;
-      function setVh() {
-        var h = isStandalone ? window.innerHeight : (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-        document.documentElement.style.setProperty('--vh', h + 'px');
-      }
-      setVh();
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', setVh);
-        window.visualViewport.addEventListener('scroll', setVh);
-      }
-      window.addEventListener('resize', setVh);
-      window.addEventListener('orientationchange', function () {
-        setTimeout(setVh, 50);
-        setTimeout(setVh, 200);
-      });
-      window.addEventListener('pageshow', function (e) { if (e.persisted) setVh(); });
-      if (isStandalone) {
-        setTimeout(setVh, 0);
-        setTimeout(setVh, 100);
-        setTimeout(setVh, 400);
-      }
-      window.__setVh = setVh;
-    })();
-  </script>
   <div id="app-root">
     <div id="map"></div>
     <button type="button" id="project-btn" title="프로젝트">P</button>
