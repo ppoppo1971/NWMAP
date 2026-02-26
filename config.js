@@ -41,12 +41,24 @@
     { featureType: 'road', elementType: 'geometry', stylers: [{ visibility: 'simplified' }] }
   ];
 
+  /** Firebase (nwmap 현장 목록 실시간 동기화용, WMAP과 동일 프로젝트 사용 가능) */
+  var FIREBASE = {
+    apiKey: 'AIzaSyCaHU7OusDuiZmqVNEUXmuiWjpq6g1p55E',
+    authDomain: 'wmpa-3fdb1.firebaseapp.com',
+    projectId: 'wmpa-3fdb1',
+    storageBucket: 'wmpa-3fdb1.firebasestorage.app',
+    messagingSenderId: '526866934993',
+    appId: '1:526866934993:web:7bcb33b218bbaadd9429f0',
+    measurementId: 'G-ZRYCTJWK5Y'
+  };
+
   global.MWMAP_CONFIG = {
     GMAPS_API_KEY: GMAPS_API_KEY,
     KOREA_BOUNDS: KOREA_BOUNDS,
     ROAD_ONLY_STYLE: ROAD_ONLY_STYLE,
     ZOOM_MIN: ZOOM_MIN,
-    ZOOM_MAX: ZOOM_MAX
+    ZOOM_MAX: ZOOM_MAX,
+    FIREBASE: FIREBASE
   };
 
   /** 모듈 진입 전 전역 네임스페이스 확보 */

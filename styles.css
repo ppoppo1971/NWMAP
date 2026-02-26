@@ -1,0 +1,444 @@
+/* MWMAP 공통 스타일: 레이아웃, 버튼, 패널, 모달 */
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #e5e3df;
+}
+#app-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+#map {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  touch-action: manipulation;
+}
+
+/* 위치검색 마커 정보창: X(닫기) 버튼 숨김 (모달 외 터치로 닫기) */
+.gm-style-iw-c .gm-ui-hover-effect,
+.gm-style-iw-tc .gm-ui-hover-effect {
+  display: none !important;
+}
+
+/* Google Maps 로고, 저작권, 기본 컨트롤을 화면에서 숨겨 깔끔한 지도만 보이도록 처리 */
+.gm-style .gmnoprint,
+.gm-style .gm-style-cc,
+.gm-style-cc,
+.gm-style a[href^="https://maps.google.com"],
+a[href^="https://maps.google.com/maps"],
+.gmnoprint,
+.gm-bundled-control,
+.gm-svpc,
+.gm-control-active {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* 줌 컨트롤 (WMAP 참고: 왼쪽 하단, 확대/축소만) */
+#zoom-controls {
+  position: absolute;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  left: max(10px, env(safe-area-inset-left));
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#zoom-in-btn,
+#zoom-out-btn {
+  background: transparent;
+  color: #333;
+  border: none;
+  border-radius: 50%;
+  width: 45px;
+  height: 45px;
+  font-size: 1.5rem;
+  font-weight: 300;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+#zoom-in-btn:hover,
+#zoom-out-btn:hover {
+  background: rgba(51, 51, 51, 0.1);
+  transform: scale(1.05);
+}
+#zoom-in-btn:active,
+#zoom-out-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+@media (max-width: 480px) {
+  #zoom-controls {
+    bottom: 10px;
+    left: 10px;
+    gap: 6px;
+  }
+  #zoom-in-btn,
+  #zoom-out-btn {
+    width: 37px;
+    height: 37px;
+    font-size: 1.3rem;
+  }
+}
+
+/* 프로젝트 버튼 (WMAP menuToggleBtn 동일: 왼쪽 상단, 크기·스타일) */
+#project-btn {
+  position: absolute;
+  top: max(20px, env(safe-area-inset-top));
+  left: max(15px, env(safe-area-inset-left));
+  z-index: 20;
+  background: rgba(29, 78, 216, 0.5);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s ease;
+}
+#project-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+#project-btn.hide {
+  display: none;
+}
+
+/* 오버레이: 전체 화면 흐리게. 패널만 z-index로 위에 올라가 선명함 */
+#project-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 12;
+  background: rgba(0,0,0,0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+#project-panel-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+#project-panel {
+  position: absolute;
+  top: 20px;
+  left: 15px;
+  z-index: 15;
+  width: 200px;
+  max-width: 85vw;
+  max-height: calc(100vh - 40px);
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  padding: 15px 12px 12px 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: all 0.3s ease;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#project-panel.hide {
+  left: -220px;
+  opacity: 0;
+  pointer-events: none;
+}
+#project-sites-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+#project-sites-header .sync-badge {
+  font-size: 0.75rem;
+  color: #059669;
+  background: #d1fae5;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+#project-sites-header .sync-badge.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+#project-sites-list {
+  margin-bottom: 12px;
+  min-height: 24px;
+}
+#project-sites-list .site-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.9rem;
+  color: #1f2937;
+}
+#add-site-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 4px;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.2s ease;
+}
+#add-site-btn:active {
+  opacity: 0.9;
+}
+/* 새 현장 추가 모달 (X 버튼 없음, 모달 외 터치 시 닫기) */
+#add-site-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1001;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+#add-site-overlay.show {
+  display: flex;
+}
+#add-site-dialog {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px rgba(0,0,0,0.15);
+  max-width: 320px;
+  width: 100%;
+  padding: 20px;
+}
+#add-site-dialog h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  color: #1f2937;
+}
+#add-site-title {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #1a1a1a;
+  font-size: 0.95rem;
+}
+#add-site-submit {
+  width: 100%;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#add-site-submit:active {
+  opacity: 0.9;
+}
+#project-panel-search {
+  margin-bottom: 12px;
+}
+#address-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f5f5f5;
+  color: #1a1a1a;
+  font-size: 0.9rem;
+}
+#address-input::placeholder {
+  color: #888;
+}
+/* 위치검색 결과 선택 모달 */
+#address-select-dialog {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.4);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+#address-select-dialog.show {
+  display: flex;
+}
+#address-select-dialog .dialog-inner {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px rgba(0,0,0,0.15);
+  max-width: 400px;
+  width: 100%;
+  max-height: 70vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+#address-select-dialog .dialog-header {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #fff;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#address-select-dialog .dialog-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+#address-select-dialog .dialog-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+#address-select-list {
+  padding: 12px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#address-select-list .address-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+#address-select-list .address-item:active {
+  background: #f8fafc;
+  border-color: #3b82f6;
+}
+#address-select-list .address-item strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #1f2937;
+}
+#address-select-list .address-item span {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+@media (max-width: 480px) {
+  #project-btn {
+    top: max(15px, env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left));
+    width: 44px;
+    height: 44px;
+    font-size: 1.3rem;
+  }
+  #project-panel {
+    top: 15px;
+    left: 10px;
+  }
+  #project-panel.hide {
+    left: -220px;
+  }
+}
+
+/* PWA(홈 화면 실행) 시 노치·홈인디케이터까지 지도 채우기 (상단만 올리지 않고 전체 뷰포트 사용) */
+@media (display-mode: standalone) {
+  html, body {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%; /* 폴백 */
+    height: 100dvh; /* 실제 보이는 뷰포트 높이 (상·하 잘림 방지) */
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #e5e3df;
+  }
+  #app-root {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* 네 방향 고정으로 뷰포트 전체 채움 (height 100% 참조 오류 방지) */
+  }
+  #map {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: constant(safe-area-inset-bottom);
+    box-sizing: border-box !important;
+  }
+}
+@supports (-webkit-touch-callout: none) {
+  body.standalone #map {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: border-box !important;
+  }
+}
