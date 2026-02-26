@@ -58,6 +58,11 @@
     geocoder = new google.maps.Geocoder();
     MWMAP.map = map;
     MWMAP.geocoder = geocoder;
+
+    // 레이아웃 방안 A: 지도 인스턴스를 전역에 저장하고 준비 이벤트 발생
+    window._mapInstance = map;
+    window.dispatchEvent(new CustomEvent('mapReady'));
+
     return true;
   }
 

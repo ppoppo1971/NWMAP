@@ -10,13 +10,12 @@
   <style>
 /* MWMAP 공통 스타일: 레이아웃, 버튼, 패널, 모달 */
 
-/* 화면 전체를 지도로 채움. 100dvh 사용(visualViewport와 충돌 방지, iOS PWA 권장) */
-html, body {
-  width: 100%;
+/* 화면 전체를 지도로 채움 (fixed/absolute 레이아웃, vh/visualViewport 의존 제거) */
+html {
   height: 100%;
-  height: 100dvh;
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
+}
+body {
+  height: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -24,19 +23,21 @@ html, body {
   background: #e5e3df;
 }
 #app-root {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
-  min-height: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
+  overflow: hidden;
 }
 #map {
-  flex: 1;
-  width: 100%;
-  min-height: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   touch-action: manipulation;
 }
 
@@ -367,7 +368,30 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0239</div>
+  <script>
+    (function () {
+      function fixMapSize() {
+        var appRoot = document.getElementById('app-root');
+        var map = document.getElementById('map');
+        if (!appRoot || !map) return;
+        if (window.google && window.google.maps && window._mapInstance) {
+          google.maps.event.trigger(window._mapInstance, 'resize');
+        }
+      }
+      window.addEventListener('resize', fixMapSize);
+      window.addEventListener('orientationchange', function () {
+        setTimeout(fixMapSize, 300);
+      });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', fixMapSize);
+      }
+      window.addEventListener('mapReady', function () {
+        setTimeout(fixMapSize, 100);
+        setTimeout(fixMapSize, 500);
+      });
+    })();
+  </script>
+  <div id="version-label" aria-hidden="true">0258</div>
   <div id="app-root">
     <div id="map"></div>
     <button type="button" id="project-btn" title="프로젝트">P</button>
