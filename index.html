@@ -60,7 +60,7 @@ a[href^="https://maps.google.com/maps"],
   position: absolute;
   bottom: max(10px, env(safe-area-inset-bottom));
   left: max(10px, env(safe-area-inset-left));
-  z-index: 10;
+  z-index: 18;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -126,7 +126,9 @@ a[href^="https://maps.google.com/maps"],
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 12;
-  background: rgba(0,0,0,0.3);
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
@@ -140,10 +142,10 @@ a[href^="https://maps.google.com/maps"],
   width: 200px;
   max-width: 85vw;
   max-height: calc(100vh - 40px);
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   padding: 15px 12px 12px 12px;
   display: flex;
   flex-direction: column;
@@ -158,8 +160,6 @@ a[href^="https://maps.google.com/maps"],
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
 }
 #project-panel.hide { left: -220px; opacity: 0; pointer-events: none; }
 
@@ -167,13 +167,12 @@ a[href^="https://maps.google.com/maps"],
 #project-sites-header .sync-badge {
   font-size: 0.75rem;
   color: #059669;
-  background: rgba(209, 250, 229, 0.9);
+  background: rgba(209, 250, 229, 0.95);
   padding: 4px 8px;
   border-radius: 9999px;
   white-space: nowrap;
   opacity: 1;
   transition: opacity 0.3s ease;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 #project-sites-header .sync-badge.hide { opacity: 0; pointer-events: none; }
 
@@ -187,14 +186,13 @@ a[href^="https://maps.google.com/maps"],
   text-align: left;
   padding: 10px 12px;
   margin-bottom: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.04);
   font-size: 0.95rem;
   line-height: 1.25;
   color: #1a1a1a;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -272,14 +270,13 @@ a[href^="https://maps.google.com/maps"],
   width: 100%;
   box-sizing: border-box;
   padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.9);
   color: #1a1a1a;
   font-size: 0.9rem;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
-#address-input::placeholder { color: rgba(26, 26, 26, 0.6); }
+#address-input::placeholder { color: rgba(26, 26, 26, 0.5); }
 
 #address-select-dialog {
   display: none;
@@ -369,7 +366,22 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0215</div>
+  <script>
+    (function () {
+      function setViewportHeight() {
+        var h = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+        document.documentElement.style.height = h + 'px';
+        document.body.style.height = h + 'px';
+        var app = document.getElementById('app-root');
+        if (app) app.style.height = h + 'px';
+      }
+      setViewportHeight();
+      window.addEventListener('resize', setViewportHeight);
+      window.addEventListener('orientationchange', setViewportHeight);
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', setViewportHeight);
+    })();
+  </script>
+  <div id="version-label" aria-hidden="true">0230</div>
   <div id="app-root">
     <div id="map"></div>
     <button type="button" id="project-btn" title="프로젝트">P</button>
