@@ -421,7 +421,7 @@ a[href^="https://maps.google.com/maps"],
   }
 }
 
-/* PWA(홈 화면 실행) 시 빈 공백·하단 잘림 없이 화면 꽉 채우기 (iPhone 13 Pro 등 iOS 대응) */
+/* PWA(홈 화면 실행) 시 빈 공백 없이 화면 꽉 채우기. 세로: innerHeight가 하단 safe 제외한 값이어서 +env(safe-area-inset-bottom) */
 @media (display-mode: standalone) {
   html, body {
     position: fixed;
@@ -431,6 +431,8 @@ a[href^="https://maps.google.com/maps"],
     height: 100%;
     min-height: -webkit-fill-available;
     height: var(--vh, 100vh);
+    height: calc(var(--vh, 100vh) + constant(safe-area-inset-bottom));
+    height: calc(var(--vh, 100vh) + env(safe-area-inset-bottom));
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden;
@@ -444,6 +446,8 @@ a[href^="https://maps.google.com/maps"],
     height: 100%;
     min-height: -webkit-fill-available;
     height: var(--vh, 100vh);
+    height: calc(var(--vh, 100vh) + constant(safe-area-inset-bottom));
+    height: calc(var(--vh, 100vh) + env(safe-area-inset-bottom));
     margin: 0;
     padding: 0;
   }
@@ -457,6 +461,8 @@ a[href^="https://maps.google.com/maps"],
     height: 100% !important;
     min-height: -webkit-fill-available !important;
     height: var(--vh, 100vh) !important;
+    height: calc(var(--vh, 100vh) + constant(safe-area-inset-bottom)) !important;
+    height: calc(var(--vh, 100vh) + env(safe-area-inset-bottom)) !important;
     padding: 0 !important;
     box-sizing: border-box !important;
   }
@@ -472,6 +478,8 @@ a[href^="https://maps.google.com/maps"],
     height: 100% !important;
     min-height: -webkit-fill-available !important;
     height: var(--vh, 100vh) !important;
+    height: calc(var(--vh, 100vh) + constant(safe-area-inset-bottom)) !important;
+    height: calc(var(--vh, 100vh) + env(safe-area-inset-bottom)) !important;
     padding: 0 !important;
     box-sizing: border-box !important;
   }
