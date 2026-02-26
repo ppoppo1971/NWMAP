@@ -13,6 +13,21 @@
   <script>
     (function(){ if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) document.body.classList.add('standalone'); })();
   </script>
+  <script>
+    (function () {
+      function setVh() {
+        var vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+        document.documentElement.style.setProperty('--vh', vh + 'px');
+      }
+      if (window.visualViewport) {
+        setVh();
+        window.visualViewport.addEventListener('resize', setVh);
+        window.visualViewport.addEventListener('scroll', setVh);
+      }
+      window.addEventListener('resize', setVh);
+      window.addEventListener('orientationchange', function () { setTimeout(setVh, 100); });
+    })();
+  </script>
   <div id="app-root">
     <div id="map"></div>
     <button type="button" id="project-btn" title="프로젝트">P</button>
