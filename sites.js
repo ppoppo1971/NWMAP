@@ -59,18 +59,23 @@
   function subscribeFirestore() {
     var ref = getDocRef();
     if (!ref) return;
-    window.firestore.onSnapshot(ref, function (snap) {
+    window.firestore.onSnapshot(ref, { includeMetadataChanges: true }, function (snap) {
       var data = snap.data();
       var sites = (data && data[SITES_FIELD]) ? data[SITES_FIELD] : [];
       renderSitesList(sites);
 
-      // 초기 로딩 또는 로컬 변경 직후 스냅샷 도착 시 동기화 배지 노출
-      if (!_initialSynced) {
-        _initialSynced = true;
-        showSyncBadge();
-      } else if (_pendingLocalChange) {
-        _pendingLocalChange = false;
-        showSyncBadge();
+      var meta = snap.metadata || {};
+      var fromServer = !meta.fromCache;
+
+      // 초기 로딩 또는 로컬 변경 직후, 서버에서 최신 스냅샷이 도착했을 때만 동기화 토스트 노출
+      if (fromServer) {
+        if (!_initialSynced) {
+          _initialSynced = true;
+          showSyncBadge();
+        } else if (_pendingLocalChange) {
+          _pendingLocalChange = false;
+          showSyncBadge();
+        }
       }
     }, function (err) {
       console.warn('Firestore 현장 목록 구독 실패:', err);
