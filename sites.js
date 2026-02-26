@@ -152,6 +152,8 @@
       });
     }).then(function () {
       closeAddSiteModal();
+      // Firebase 쓰기 성공 시점에서 즉시 동기화 토스트 표시 (데스크톱/모바일 공통)
+      showSyncSuccessBadge();
     }).catch(function (err) {
       console.error('현장 추가 실패:', err);
       console.error('Firebase 오류 상세:', err && err.code, err && err.message);
@@ -211,6 +213,7 @@
       });
     }).then(function () {
       closeEditSiteModal();
+      showSyncSuccessBadge();
     }).catch(function (err) {
       console.error('현장 수정 실패:', err);
       alert('수정에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
@@ -239,6 +242,7 @@
       });
     }).then(function () {
       closeEditSiteModal();
+      showSyncSuccessBadge();
     }).catch(function (err) {
       console.error('현장 삭제 실패:', err);
       alert('삭제에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
