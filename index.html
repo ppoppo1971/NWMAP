@@ -306,6 +306,72 @@ a[href^="https://maps.google.com/maps"],
   -webkit-tap-highlight-color: transparent;
 }
 #add-site-submit:active { opacity: 0.9; }
+
+/* 현장 편집/삭제 모달 (새 현장 추가 모달과 동일 스타일) */
+#edit-site-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1001;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+#edit-site-overlay.show { display: flex; }
+#edit-site-dialog {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px rgba(0,0,0,0.15);
+  max-width: 320px;
+  width: 100%;
+  padding: 20px;
+}
+#edit-site-dialog h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  color: #1f2937;
+}
+#edit-site-title {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #1a1a1a;
+  font-size: 0.95rem;
+}
+.edit-site-actions {
+  display: flex;
+  gap: 8px;
+}
+#edit-site-save,
+#edit-site-delete {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#edit-site-save {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #fff;
+}
+#edit-site-delete {
+  background: #ef4444;
+  color: #fff;
+}
+#edit-site-save:active,
+#edit-site-delete:active {
+  opacity: 0.9;
+}
+
 #project-panel-search { margin-bottom: 4px; }
 #address-input {
   width: 100%;
@@ -436,6 +502,18 @@ a[href^="https://maps.google.com/maps"],
       <h3 id="add-site-dialog-title">새 현장 추가</h3>
       <input type="text" id="add-site-title" placeholder="현장 이름" autocomplete="off" aria-label="현장 이름">
       <button type="button" id="add-site-submit">추가</button>
+    </div>
+  </div>
+
+  <!-- 현장 편집/삭제 모달 (새 현장 추가 모달과 동일 스타일) -->
+  <div id="edit-site-overlay" aria-hidden="true">
+    <div id="edit-site-dialog" role="dialog" aria-labelledby="edit-site-dialog-title">
+      <h3 id="edit-site-dialog-title">현장 편집</h3>
+      <input type="text" id="edit-site-title" placeholder="현장 이름" autocomplete="off" aria-label="현장 이름">
+      <div class="edit-site-actions">
+        <button type="button" id="edit-site-save">수정</button>
+        <button type="button" id="edit-site-delete">삭제</button>
+      </div>
     </div>
   </div>
 
