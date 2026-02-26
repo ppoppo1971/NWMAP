@@ -48,5 +48,8 @@
     ZOOM_MIN: ZOOM_MIN,
     ZOOM_MAX: ZOOM_MAX
   };
+
+  /** 모듈 진입 전 전역 네임스페이스 확보 */
+  global.MWMAP = global.MWMAP || {};
 })(typeof window !== 'undefined' ? window : this);
 
