@@ -143,7 +143,8 @@ a[href^="https://maps.google.com/maps"],
   z-index: 15;
   width: 200px;
   max-width: 85vw;
-  max-height: calc(100vh - 40px);
+  /* 확대/축소 버튼과 겹치지 않도록 하단에 여유를 두고 패널 높이 제한 */
+  max-height: calc(100vh - 120px);
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 20px;
@@ -154,14 +155,20 @@ a[href^="https://maps.google.com/maps"],
   gap: 8px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   transition: all 0.3s ease;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  scroll-behavior: smooth;
+  overflow: hidden;
   touch-action: pan-y;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+#project-panel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
 }
 #project-panel.hide { left: -220px; opacity: 0; pointer-events: none; }
 
@@ -368,7 +375,7 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0301</div>
+  <div id="version-label" aria-hidden="true">0343</div>
   <div id="app-root">
     <div id="map"></div>
     <button type="button" id="project-btn" title="프로젝트">P</button>
@@ -377,10 +384,12 @@ a[href^="https://maps.google.com/maps"],
       <div id="project-panel-search">
         <input type="text" id="address-input" placeholder="위치검색" autocomplete="off">
       </div>
-      <div id="project-sites-header">
-        <span class="sync-badge hide" id="sync-badge" aria-live="polite">동기화됨</span>
+      <div id="project-panel-scroll">
+        <div id="project-sites-header">
+          <span class="sync-badge hide" id="sync-badge" aria-live="polite">동기화됨</span>
+        </div>
+        <div id="project-sites-list"></div>
       </div>
-      <div id="project-sites-list"></div>
       <button type="button" id="add-site-btn">+ 현장추가</button>
     </div>
     <div id="zoom-controls">

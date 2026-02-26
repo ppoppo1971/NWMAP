@@ -6,6 +6,8 @@
 (function (MWMAP) {
   var USER_DOC_PATH = ['users', 'currentUser'];
   var SITES_FIELD = 'customSchedules';
+  var _initialSynced = false;
+  var _pendingLocalChange = false;
 
   function getDocRef() {
     if (!window.db || !window.firestore) return null;
@@ -61,6 +63,15 @@
       var data = snap.data();
       var sites = (data && data[SITES_FIELD]) ? data[SITES_FIELD] : [];
       renderSitesList(sites);
+
+      // 초기 로딩 또는 로컬 변경 직후 스냅샷 도착 시 동기화 배지 노출
+      if (!_initialSynced) {
+        _initialSynced = true;
+        showSyncBadge();
+      } else if (_pendingLocalChange) {
+        _pendingLocalChange = false;
+        showSyncBadge();
+      }
     }, function (err) {
       console.warn('Firestore 현장 목록 구독 실패:', err);
     });
@@ -83,6 +94,8 @@
       timestamp: new Date().toISOString(),
       type: 'custom_schedule'
     };
+    _pendingLocalChange = true;
+
     window.firestore.getDoc(ref).then(function (snap) {
       var existing = (snap.exists() && snap.data() && snap.data().customSchedules) ? snap.data().customSchedules : [];
       var updated = [newItem].concat(existing);
@@ -98,7 +111,6 @@
       });
     }).then(function () {
       closeAddSiteModal();
-      showSyncBadge();
     }).catch(function (err) {
       console.error('현장 추가 실패:', err);
       console.error('Firebase 오류 상세:', err && err.code, err && err.message);
