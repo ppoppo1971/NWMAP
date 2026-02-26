@@ -70,6 +70,54 @@ window.MWMAP = window.MWMAP || {};
     }
 
     MWMAP.map = map;
+    bindZoomControls();
+    bindProjectPanel();
+  }
+
+  /** 프로젝트 버튼·사이드 패널 (WMAP 방식: 버튼 클릭 시 패널 열기, 오버레이/닫기로 닫기) */
+  function bindProjectPanel() {
+    var btn = document.getElementById('project-btn');
+    var panel = document.getElementById('project-panel');
+    var overlay = document.getElementById('project-panel-overlay');
+    var closeBtn = document.getElementById('project-panel-close');
+
+    function openPanel() {
+      if (panel) panel.classList.remove('hide');
+      if (overlay) overlay.classList.add('show');
+      if (btn) btn.classList.add('hide');
+    }
+    function closePanel() {
+      if (panel) panel.classList.add('hide');
+      if (overlay) overlay.classList.remove('show');
+      if (btn) btn.classList.remove('hide');
+    }
+
+    if (btn) btn.addEventListener('click', openPanel);
+    if (overlay) overlay.addEventListener('click', closePanel);
+    if (closeBtn) closeBtn.addEventListener('click', closePanel);
+  }
+
+  /** 확대/축소 버튼 동작 (WMAP 참고) */
+  function bindZoomControls() {
+    var cfg = window.MWMAP_CONFIG || {};
+    var minZoom = cfg.ZOOM_MIN != null ? cfg.ZOOM_MIN : 1;
+    var maxZoom = cfg.ZOOM_MAX != null ? cfg.ZOOM_MAX : 20;
+
+    function zoomIn() {
+      if (!map) return;
+      var z = map.getZoom();
+      if (typeof z === 'number') map.setZoom(Math.min(z + 1, maxZoom));
+    }
+    function zoomOut() {
+      if (!map) return;
+      var z = map.getZoom();
+      if (typeof z === 'number') map.setZoom(Math.max(z - 1, minZoom));
+    }
+
+    var inBtn = document.getElementById('zoom-in-btn');
+    var outBtn = document.getElementById('zoom-out-btn');
+    if (inBtn) inBtn.addEventListener('click', zoomIn);
+    if (outBtn) outBtn.addEventListener('click', zoomOut);
   }
 
   // Google Maps API 의 callback 이 호출할 전역 함수로 노출

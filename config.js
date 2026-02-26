@@ -20,6 +20,10 @@
     east: 131.0
   };
 
+  /** 지도 줌 범위 (확대/축소 버튼용) */
+  var ZOOM_MIN = 1;
+  var ZOOM_MAX = 20;
+
   /**
    * 도로 전용 스타일 (NDMAP ROAD_ONLY_STYLE 참고)
    * - POI, 대중교통, 모든 라벨을 숨기고
@@ -40,7 +44,9 @@
   global.MWMAP_CONFIG = {
     GMAPS_API_KEY: GMAPS_API_KEY,
     KOREA_BOUNDS: KOREA_BOUNDS,
-    ROAD_ONLY_STYLE: ROAD_ONLY_STYLE
+    ROAD_ONLY_STYLE: ROAD_ONLY_STYLE,
+    ZOOM_MIN: ZOOM_MIN,
+    ZOOM_MAX: ZOOM_MAX
   };
 })(typeof window !== 'undefined' ? window : this);
 
