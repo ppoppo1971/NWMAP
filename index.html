@@ -10,10 +10,11 @@
   <style>
 /* MWMAP 공통 스타일: 레이아웃, 버튼, 패널, 모달 */
 
-/* 화면 전체를 지도로 채움 (iOS 포함, 단일 규칙) */
+/* 화면 전체를 지도로 채움. 100dvh 사용(visualViewport와 충돌 방지, iOS PWA 권장) */
 html, body {
   width: 100%;
   height: 100%;
+  height: 100dvh;
   min-height: 100vh;
   min-height: -webkit-fill-available;
   margin: 0;
@@ -26,9 +27,11 @@ html, body {
   position: relative;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 #map {
   flex: 1;
@@ -126,9 +129,7 @@ a[href^="https://maps.google.com/maps"],
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 12;
-  background: rgba(0,0,0,0.35);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0,0,0,0.3);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
@@ -366,22 +367,7 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <script>
-    (function () {
-      function setViewportHeight() {
-        var h = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-        document.documentElement.style.height = h + 'px';
-        document.body.style.height = h + 'px';
-        var app = document.getElementById('app-root');
-        if (app) app.style.height = h + 'px';
-      }
-      setViewportHeight();
-      window.addEventListener('resize', setViewportHeight);
-      window.addEventListener('orientationchange', setViewportHeight);
-      if (window.visualViewport) window.visualViewport.addEventListener('resize', setViewportHeight);
-    })();
-  </script>
-  <div id="version-label" aria-hidden="true">0230</div>
+  <div id="version-label" aria-hidden="true">0239</div>
   <div id="app-root">
     <div id="map"></div>
     <button type="button" id="project-btn" title="프로젝트">P</button>
