@@ -15,6 +15,7 @@
 html, body {
   width: 100%;
   height: 100%;
+  position: fixed;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -22,22 +23,18 @@ html, body {
   background: #e5e3df;
 }
 #app-root {
-  position: fixed;
-  top: 0;
-  top: env(safe-area-inset-top);
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  width: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 #map {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  flex: 1;
   touch-action: manipulation;
 }
 
@@ -173,17 +170,34 @@ a[href^="https://maps.google.com/maps"],
 #project-panel.hide { left: -220px; opacity: 0; pointer-events: none; }
 
 #project-sites-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-#project-sites-header .sync-badge {
-  font-size: 0.75rem;
-  color: #059669;
-  background: rgba(209, 250, 229, 0.95);
-  padding: 4px 8px;
+
+/* 동기화 토스트 (wmap 스타일, 화면 하단 중앙) */
+#sync-badge {
+  position: fixed;
+  bottom: max(16px, env(safe-area-inset-bottom) + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  z-index: 40;
+  padding: 8px 16px;
   border-radius: 9999px;
+  background: #065f46;
+  color: #ecfdf5;
+  font-size: 0.85rem;
+  font-weight: 600;
   white-space: nowrap;
-  opacity: 1;
-  transition: opacity 0.3s ease;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
 }
-#project-sites-header .sync-badge.hide { opacity: 0; pointer-events: none; }
+#sync-badge.hide {
+  opacity: 0;
+  transform: translateX(-50%) translateY(12px);
+}
+#sync-badge:not(.hide) {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
 
 #project-sites-list { min-height: 24px; }
 #project-sites-list .site-item {
@@ -375,7 +389,7 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0343</div>
+  <div id="version-label" aria-hidden="true">0416</div>
   <div id="app-root">
     <div id="map"></div>
     <button type="button" id="project-btn" title="프로젝트">P</button>
