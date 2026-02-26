@@ -10,9 +10,12 @@
   <style>
 /* MWMAP 공통 스타일: 레이아웃, 버튼, 패널, 모달 */
 
+/* 화면 전체를 지도로 채움 (iOS 포함, 단일 규칙) */
 html, body {
   width: 100%;
   height: 100%;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -23,14 +26,14 @@ html, body {
   position: relative;
   width: 100%;
   height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
 #map {
   flex: 1;
   width: 100%;
-  height: 100%;
-  min-height: 100%;
+  min-height: 0;
   touch-action: manipulation;
 }
 
@@ -363,16 +366,10 @@ a[href^="https://maps.google.com/maps"],
   pointer-events: none;
 }
 
-/* PWA: 화면 끝까지 채움만 적용. 노치/인디케이터는 예약 공간 없이 OS가 위에 오버레이(하단 여백 없음) */
-@media (display-mode: standalone) {
-  html, body { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
-  #app-root { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
-  #map { position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; height: 100% !important; box-sizing: border-box !important; }
-}
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0209</div>
+  <div id="version-label" aria-hidden="true">0215</div>
   <div id="app-root">
     <div id="map"></div>
     <button type="button" id="project-btn" title="프로젝트">P</button>
