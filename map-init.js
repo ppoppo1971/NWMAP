@@ -55,10 +55,53 @@
       });
     }
 
+    /* 브이월드 타일 레이어 (WMAP 참조) */
+    var vworldRoadmapType = new google.maps.ImageMapType({
+      getTileUrl: function (coord, zoom) {
+        return 'https://xdworld.vworld.kr/2d/Base/service/' + zoom + '/' + coord.x + '/' + coord.y + '.png';
+      },
+      tileSize: new google.maps.Size(256, 256),
+      name: '브이월드일반',
+      maxZoom: 19
+    });
+    var vworldSatelliteType = new google.maps.ImageMapType({
+      getTileUrl: function (coord, zoom) {
+        return 'https://xdworld.vworld.kr/2d/Satellite/service/' + zoom + '/' + coord.x + '/' + coord.y + '.jpeg';
+      },
+      tileSize: new google.maps.Size(256, 256),
+      name: '브이월드영상',
+      maxZoom: 19
+    });
+    map.mapTypes.set('브이월드일반', vworldRoadmapType);
+    map.mapTypes.set('브이월드영상', vworldSatelliteType);
+
     geocoder = new google.maps.Geocoder();
     MWMAP.map = map;
     MWMAP.geocoder = geocoder;
     return true;
+  }
+
+  var MAP_TYPE_LABELS = {
+    roadmap: '구글(도로)',
+    satellite: '구글(위성)',
+    '브이월드일반': '브이월드(도로)',
+    '브이월드영상': '브이월드(위성)'
+  };
+
+  function setMapType(typeId) {
+    var m = MWMAP.map;
+    if (!m || !m.setMapTypeId) return;
+    m.setMapTypeId(typeId);
+    var cfg = window.MWMAP_CONFIG || {};
+    if (typeId === 'roadmap' && cfg.ROAD_ONLY_STYLE) {
+      m.setOptions({ styles: cfg.ROAD_ONLY_STYLE });
+    } else if (typeId === 'satellite' || typeId === '브이월드일반' || typeId === '브이월드영상') {
+      m.setOptions({ styles: [] });
+    }
+  }
+
+  function getMapTypeLabel(typeId) {
+    return MAP_TYPE_LABELS[typeId] || typeId || '구글(도로)';
   }
 
   function bindZoomControls() {
@@ -83,5 +126,5 @@
     if (outBtn) outBtn.addEventListener('click', zoomOut);
   }
 
-  MWMAP.mapInit = { create: create, bindZoomControls: bindZoomControls };
+  MWMAP.mapInit = { create: create, bindZoomControls: bindZoomControls, setMapType: setMapType, getMapTypeLabel: getMapTypeLabel };
 })(window.MWMAP);

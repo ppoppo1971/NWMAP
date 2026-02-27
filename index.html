@@ -166,6 +166,87 @@ a[href^="https://maps.google.com/maps"],
 #project-btn:active { transform: scale(0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 #project-btn.hide { display: none; }
 
+/* 오른쪽 상단 지도종류 버튼 (왼쪽 프로젝트 버튼과 동일 스타일) */
+#map-type-btn {
+  position: absolute;
+  top: max(20px, env(safe-area-inset-top));
+  right: max(15px, env(safe-area-inset-right));
+  left: auto;
+  z-index: 20;
+  background: rgba(29, 78, 216, 0.5);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s ease;
+}
+#map-type-btn:active { transform: scale(0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+#map-type-btn.hide { display: none; }
+
+#map-type-panel-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 12;
+  background: rgba(0,0,0,0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+#map-type-panel-overlay.show { opacity: 1; pointer-events: auto; }
+
+#map-type-panel {
+  position: absolute;
+  top: 20px; right: 15px; left: auto;
+  z-index: 15;
+  width: 200px;
+  max-width: 85vw;
+  max-height: 70vh;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  padding: 15px 12px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+#map-type-panel.hide { right: -220px; opacity: 0; pointer-events: none; }
+
+#map-type-inner-btn {
+  width: 100%;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s ease;
+  text-align: left;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+#map-type-inner-btn:hover { background: rgba(0, 0, 0, 0.08); }
+#map-type-inner-btn:active { transform: scale(0.98); }
+
 #project-panel-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -348,6 +429,47 @@ a[href^="https://maps.google.com/maps"],
 }
 #add-site-submit:active { opacity: 0.9; }
 
+/* 지도 종류 선택 모달 (현장추가 모달과 동일 스타일) */
+#map-type-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1001;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+#map-type-overlay.show { display: flex; }
+#map-type-dialog {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px rgba(0,0,0,0.15);
+  max-width: 320px;
+  width: 100%;
+  padding: 20px;
+}
+#map-type-dialog h3 { margin: 0 0 16px 0; font-size: 1.1rem; color: #1f2937; }
+.map-type-option {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #1a1a1a;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.map-type-option:last-child { margin-bottom: 0; }
+.map-type-option:hover { background: #f3f4f6; border-color: #d1d5db; }
+.map-type-option:active { opacity: 0.9; }
+
 /* 현장 편집/삭제 모달 (새 현장 추가 모달과 동일 스타일) */
 #edit-site-overlay {
   position: fixed;
@@ -493,8 +615,11 @@ a[href^="https://maps.google.com/maps"],
 
 @media (max-width: 480px) {
   #project-btn { top: max(15px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); width: 44px; height: 44px; font-size: 1.3rem; }
+  #map-type-btn { top: max(15px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); width: 44px; height: 44px; font-size: 1.3rem; }
   #project-panel { top: 15px; left: 10px; }
   #project-panel.hide { left: -220px; }
+  #map-type-panel { top: 15px; right: 10px; }
+  #map-type-panel.hide { right: -220px; }
 }
 
 /* 수정버전 확인용 라벨 (화면 아래 중앙) */
@@ -514,11 +639,16 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0942</div>
+  <div id="version-label" aria-hidden="true">0955</div>
   <span class="sync-badge hide" id="sync-badge" aria-live="polite">동기화됨</span>
   <div id="app-root">
     <div id="map"></div>
     <button type="button" id="project-btn" title="프로젝트">P</button>
+    <button type="button" id="map-type-btn" title="지도 종류">M</button>
+    <div id="map-type-panel-overlay" aria-hidden="true"></div>
+    <div id="map-type-panel" class="hide">
+      <button type="button" id="map-type-inner-btn" title="지도 종류 선택">MAP · 구글(도로)</button>
+    </div>
     <div id="project-panel-overlay" aria-hidden="true"></div>
     <div id="project-panel" class="hide">
       <div id="project-panel-search">
@@ -535,6 +665,17 @@ a[href^="https://maps.google.com/maps"],
       <button type="button" id="zoom-out-btn" title="축소">−</button>
     </div>
     <button type="button" id="location-btn" title="현재 위치로 이동">📌</button>
+  </div>
+
+  <!-- 지도 종류 선택 모달 (현장추가 모달과 동일 스타일) -->
+  <div id="map-type-overlay" aria-hidden="true">
+    <div id="map-type-dialog" role="dialog" aria-labelledby="map-type-dialog-title">
+      <h3 id="map-type-dialog-title">지도 종류</h3>
+      <button type="button" class="map-type-option" data-type="roadmap">구글(도로)</button>
+      <button type="button" class="map-type-option" data-type="satellite">구글(위성)</button>
+      <button type="button" class="map-type-option" data-type="브이월드일반">브이월드(도로)</button>
+      <button type="button" class="map-type-option" data-type="브이월드영상">브이월드(위성)</button>
+    </div>
   </div>
 
   <!-- 새 현장 추가 모달 (X 없음, 모달 외 터치 시 닫기) -->
@@ -602,6 +743,7 @@ a[href^="https://maps.google.com/maps"],
   <script src="map-location.js"></script>
   <script src="map-search.js"></script>
   <script src="ui-panel.js"></script>
+  <script src="ui-map-type.js"></script>
   <script src="sites.js"></script>
   <script src="app.js"></script>
   <!-- Google Maps API: callback=initMap 으로 진입 -->
