@@ -152,12 +152,15 @@
       closePanelAndDismissKeyboard();
     }
 
-    /** 패널 닫기 + 입력란 포커스 해제(모바일 키보드 내리기) → 지도 확인 용이 */
+    /** 패널 닫기 + 입력란 초기화·포커스 해제(모바일 키보드 내리기) → 지도 확인 용이 */
     function closePanelAndDismissKeyboard() {
       if (MWMAP.uiPanel && typeof MWMAP.uiPanel.closePanel === 'function') {
         MWMAP.uiPanel.closePanel();
       }
-      if (inputEl) inputEl.blur();
+      if (inputEl) {
+        inputEl.value = '';
+        inputEl.blur();
+      }
     }
 
     /** 검색 결과를 목록 모달 없이 지도에 마커로 바로 표시 */
