@@ -225,7 +225,7 @@
     sites.forEach(function (site) {
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'dxf-site-item-btn'; // 동일 스타일 재사용
+      btn.className = 'kml-site-item-btn';
       btn.textContent = site.title || '(이름 없음)';
       btn.addEventListener('click', function () {
         saveKmlForSite(site.id, payload);

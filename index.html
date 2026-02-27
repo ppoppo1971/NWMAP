@@ -432,6 +432,55 @@ a[href^="https://maps.google.com/maps"],
 }
 #add-site-submit:active { opacity: 0.9; }
 
+/* KML 저장 현장 선택 모달 (새 현장 추가 모달과 동일 스타일) */
+#kml-site-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1001;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+#kml-site-overlay.show { display: flex; }
+#kml-site-dialog {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px rgba(0,0,0,0.15);
+  max-width: 320px;
+  width: 100%;
+  padding: 20px;
+}
+#kml-site-dialog h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  color: #1f2937;
+}
+#kml-site-list {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.kml-site-item-btn {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #1a1a1a;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.kml-site-item-btn:last-child { margin-bottom: 0; }
+.kml-site-item-btn:hover { background: #f3f4f6; border-color: #d1d5db; }
+.kml-site-item-btn:active { opacity: 0.9; }
+
 /* 지도 종류 선택 모달 (현장추가 모달과 동일 스타일) */
 #map-type-overlay {
   position: fixed;
@@ -642,7 +691,7 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0145</div>
+  <div id="version-label" aria-hidden="true">0210</div>
   <span class="sync-badge hide" id="sync-badge" aria-live="polite">동기화됨</span>
   <div id="app-root">
     <div id="map"></div>
