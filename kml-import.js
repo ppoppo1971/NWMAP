@@ -8,6 +8,9 @@
  */
 (function (MWMAP) {
   var _latestGeoJson = null;
+  var _renderedMarkers = [];
+  var _renderedLines = [];
+  var _renderedPolygons = [];
 
   function ensureDeps() {
     if (typeof toGeoJSON === 'undefined') {
@@ -150,6 +153,21 @@
     }
   }
 
+   function clearRenderedFromFirestore() {
+    _renderedMarkers.forEach(function (m) {
+      if (m && m.setMap) m.setMap(null);
+    });
+    _renderedLines.forEach(function (l) {
+      if (l && l.setMap) l.setMap(null);
+    });
+    _renderedPolygons.forEach(function (p) {
+      if (p && p.setMap) p.setMap(null);
+    });
+    _renderedMarkers = [];
+    _renderedLines = [];
+    _renderedPolygons = [];
+  }
+
   function buildShapesFromGeoJson(geoJson) {
     var shapes = { points: [], lines: [], polygons: [] };
     if (!geoJson || !Array.isArray(geoJson.features)) return shapes;
@@ -192,6 +210,65 @@
     });
 
     return shapes;
+  }
+
+  // Firestore에서 읽어온 kmlBySite 데이터를 기반으로 모든 사이트의 KML 요약 객체를 지도에 그림
+  function renderFromFirestoreData(data) {
+    clearRenderedFromFirestore();
+    if (!data || !data.kmlBySite || typeof data.kmlBySite !== 'object') return;
+    var map = MWMAP.map;
+    if (!map || !google || !google.maps) return;
+
+    for (var siteId in data.kmlBySite) {
+      if (!Object.prototype.hasOwnProperty.call(data.kmlBySite, siteId)) continue;
+      var payload = data.kmlBySite[siteId];
+      if (!payload || !payload.shapes) continue;
+      var shapes = payload.shapes;
+
+      (shapes.points || []).forEach(function (pt) {
+        if (typeof pt.lat !== 'number' || typeof pt.lng !== 'number') return;
+        var marker = new google.maps.Marker({
+          map: map,
+          position: { lat: pt.lat, lng: pt.lng },
+          title: pt.title || '',
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 4,
+            fillColor: '#ef4444',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 1
+          }
+        });
+        _renderedMarkers.push(marker);
+      });
+
+      (shapes.lines || []).forEach(function (ln) {
+        if (!Array.isArray(ln.path) || ln.path.length < 2) return;
+        var line = new google.maps.Polyline({
+          map: map,
+          path: ln.path.map(function (p) { return { lat: p.lat, lng: p.lng }; }),
+          strokeColor: ln.color || '#3b82f6',
+          strokeOpacity: 0.9,
+          strokeWeight: 2
+        });
+        _renderedLines.push(line);
+      });
+
+      (shapes.polygons || []).forEach(function (pg) {
+        if (!Array.isArray(pg.path) || pg.path.length < 3) return;
+        var poly = new google.maps.Polygon({
+          map: map,
+          paths: pg.path.map(function (p) { return { lat: p.lat, lng: p.lng }; }),
+          strokeColor: pg.color || '#3b82f6',
+          strokeOpacity: 0.9,
+          strokeWeight: 2,
+          fillColor: pg.color || '#3b82f6',
+          fillOpacity: 0.15
+        });
+        _renderedPolygons.push(poly);
+      });
+    }
   }
 
   function getSitesForSelection() {
@@ -339,6 +416,6 @@
     }
   }
 
-  MWMAP.kmlImport = { bind: bind };
+  MWMAP.kmlImport = { bind: bind, renderFromFirestoreData: renderFromFirestoreData };
 })(window.MWMAP);
 

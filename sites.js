@@ -91,16 +91,35 @@
       var sites = (data && data[SITES_FIELD]) ? data[SITES_FIELD] : [];
       renderSitesList(sites);
 
+      // 저장된 KML 요약 데이터가 있다면 지도에 그리기
+      var renderOk = true;
+      if (window.MWMAP && window.MWMAP.kmlImport && typeof window.MWMAP.kmlImport.renderFromFirestoreData === 'function') {
+        try {
+          window.MWMAP.kmlImport.renderFromFirestoreData(data || {});
+        } catch (e) {
+          console.warn('KML 렌더링 실패:', e);
+          renderOk = false;
+        }
+      }
+
       if (_initialSyncTimeout) {
         clearTimeout(_initialSyncTimeout);
         _initialSyncTimeout = null;
       }
       if (!_initialSynced) {
         _initialSynced = true;
-        showSyncSuccessBadge();
+        if (renderOk) {
+          showSyncSuccessBadge();
+        } else {
+          showSyncErrorBadge();
+        }
       } else if (_pendingLocalChange) {
         _pendingLocalChange = false;
-        showSyncSuccessBadge();
+        if (renderOk) {
+          showSyncSuccessBadge();
+        } else {
+          showSyncErrorBadge();
+        }
       }
     }, function (err) {
       console.warn('Firestore 현장 목록 구독 실패:', err);
