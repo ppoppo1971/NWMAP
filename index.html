@@ -70,7 +70,7 @@ a[href^="https://maps.google.com/maps"],
 }
 #zoom-in-btn,
 #zoom-out-btn {
-  background: transparent;
+  background: #fff;
   color: #333;
   border: none;
   border-radius: 50%;
@@ -89,7 +89,7 @@ a[href^="https://maps.google.com/maps"],
 }
 #zoom-in-btn:hover,
 #zoom-out-btn:hover {
-  background: rgba(51, 51, 51, 0.1);
+  background: #f0f0f0;
   transform: scale(1.05);
 }
 #zoom-in-btn:active,
@@ -102,13 +102,13 @@ a[href^="https://maps.google.com/maps"],
   #zoom-in-btn, #zoom-out-btn { width: 37px; height: 37px; font-size: 1.3rem; }
 }
 
-/* 현재위치 버튼 (WMAP 참조: 오른쪽 하단, safe-area) */
+/* 현재위치 버튼 (줌 컨트롤과 같은 높이, 위성지도 가독성 위해 흰 배경) */
 #location-btn {
   position: absolute;
-  bottom: max(10px, env(safe-area-inset-bottom));
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 22px);
   right: max(10px, env(safe-area-inset-right));
   z-index: 18;
-  background: transparent;
+  background: #fff;
   color: #333;
   border: none;
   border-radius: 50%;
@@ -124,7 +124,7 @@ a[href^="https://maps.google.com/maps"],
   transition: all 0.2s ease;
 }
 #location-btn:hover {
-  background: rgba(51, 51, 51, 0.1);
+  background: #f0f0f0;
   transform: scale(1.05);
 }
 #location-btn:active {
@@ -140,7 +140,7 @@ a[href^="https://maps.google.com/maps"],
   50% { opacity: 0.7; }
 }
 @media (max-width: 480px) {
-  #location-btn { width: 37px; height: 37px; font-size: 1rem; bottom: 10px; right: 10px; }
+  #location-btn { width: 37px; height: 37px; font-size: 1rem; bottom: 32px; right: 10px; }
 }
 
 #project-btn {
@@ -639,7 +639,7 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0955</div>
+  <div id="version-label" aria-hidden="true">1029</div>
   <span class="sync-badge hide" id="sync-badge" aria-live="polite">동기화됨</span>
   <div id="app-root">
     <div id="map"></div>
