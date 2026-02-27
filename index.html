@@ -286,6 +286,15 @@ a[href^="https://maps.google.com/maps"],
   user-select: none;
 }
 
+#project-panel-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 4px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 #project-panel-scroll {
   flex: 1;
   min-height: 0;
@@ -691,7 +700,7 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0210</div>
+  <div id="version-label" aria-hidden="true">0309</div>
   <span class="sync-badge hide" id="sync-badge" aria-live="polite">동기화됨</span>
   <div id="app-root">
     <div id="map"></div>
@@ -704,6 +713,7 @@ a[href^="https://maps.google.com/maps"],
     </div>
     <div id="project-panel-overlay" aria-hidden="true"></div>
     <div id="project-panel" class="hide">
+      <div id="project-panel-title">WOORI MAP</div>
       <div id="project-panel-search">
         <input type="text" id="address-input" placeholder="위치검색" autocomplete="off">
       </div>

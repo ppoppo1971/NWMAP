@@ -11,6 +11,8 @@
   var _renderedMarkers = [];
   var _renderedLines = [];
   var _renderedPolygons = [];
+  var _currentInfoWindow = null;
+  var _mapClickCloseListener = null;
 
   function ensureDeps() {
     if (typeof toGeoJSON === 'undefined') {
@@ -153,7 +155,7 @@
     }
   }
 
-   function clearRenderedFromFirestore() {
+  function clearRenderedFromFirestore() {
     _renderedMarkers.forEach(function (m) {
       if (m && m.setMap) m.setMap(null);
     });
@@ -179,9 +181,11 @@
       if (g.type === 'Point') {
         var c = g.coordinates;
         if (Array.isArray(c) && c.length >= 2) {
+          var isText = !!(props.name || props.description);
           shapes.points.push({
             lat: c[1],
             lng: c[0],
+            type: isText ? 'text' : 'point',
             title: props.name || '',
             description: props.description || ''
           });
@@ -201,6 +205,7 @@
         if (ring.length >= 4) {
           shapes.polygons.push({
             path: ring.map(function (p) { return { lat: p[1], lng: p[0] }; }),
+            type: 'block',
             name: props.name || '',
             description: props.description || '',
             color: props.stroke || '#3b82f6'
@@ -225,46 +230,115 @@
       if (!payload || !payload.shapes) continue;
       var shapes = payload.shapes;
 
+      // 공통 InfoWindow 닫기/맵 클릭 리스너 설정 함수
+      function openInfoWindowAt(latLng, html) {
+        if (!latLng) return;
+        if (_currentInfoWindow) {
+          _currentInfoWindow.close();
+        }
+        _currentInfoWindow = new google.maps.InfoWindow({
+          content: html,
+          position: latLng,
+          maxWidth: 320
+        });
+        _currentInfoWindow.open(map);
+
+        // 축척 조정: 현재 줌이 기준보다 작으면 확대 (기준 10)
+        var targetZoom = 10;
+        var currentZoom = map.getZoom();
+        if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
+          map.setZoom(targetZoom);
+        }
+        map.panTo(latLng);
+
+        // 지도 다른 곳 클릭 시 InfoWindow 닫기
+        if (_mapClickCloseListener) {
+          google.maps.event.removeListener(_mapClickCloseListener);
+          _mapClickCloseListener = null;
+        }
+        _mapClickCloseListener = google.maps.event.addListener(map, 'click', function () {
+          if (_currentInfoWindow) {
+            _currentInfoWindow.close();
+            _currentInfoWindow = null;
+          }
+        });
+      }
+
       (shapes.points || []).forEach(function (pt) {
         if (typeof pt.lat !== 'number' || typeof pt.lng !== 'number') return;
+        var pos = { lat: pt.lat, lng: pt.lng };
+        var isText = pt.type === 'text';
         var marker = new google.maps.Marker({
           map: map,
-          position: { lat: pt.lat, lng: pt.lng },
+          position: pos,
           title: pt.title || '',
           icon: {
             path: google.maps.SymbolPath.CIRCLE,
             scale: 4,
-            fillColor: '#ef4444',
+            fillColor: isText ? '#8b5cf6' : '#facc15', // 텍스트: 보라, 포인트: 노랑
             fillOpacity: 1,
             strokeColor: '#ffffff',
             strokeWeight: 1
           }
         });
+        if (isText) {
+          marker.addListener('click', function () {
+            var html =
+              '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;">' +
+              '<div style="font-weight:700;margin-bottom:6px;">' + (pt.title || '텍스트') + '</div>';
+            if (pt.description) {
+              html += '<div style="font-size:13px;color:#6b7280;line-height:1.4;">' +
+                pt.description + '</div>';
+            }
+            html += '</div>';
+            openInfoWindowAt(pos, html);
+          });
+        }
         _renderedMarkers.push(marker);
       });
 
       (shapes.lines || []).forEach(function (ln) {
         if (!Array.isArray(ln.path) || ln.path.length < 2) return;
+        var path = ln.path.map(function (p) { return { lat: p.lat, lng: p.lng }; });
         var line = new google.maps.Polyline({
           map: map,
-          path: ln.path.map(function (p) { return { lat: p.lat, lng: p.lng }; }),
+          path: path,
           strokeColor: ln.color || '#3b82f6',
           strokeOpacity: 0.9,
           strokeWeight: 2
         });
+        // 선형은 선택되지 않도록 InfoWindow 리스너를 붙이지 않음
         _renderedLines.push(line);
       });
 
       (shapes.polygons || []).forEach(function (pg) {
         if (!Array.isArray(pg.path) || pg.path.length < 3) return;
+        var polyPath = pg.path.map(function (p) { return { lat: p.lat, lng: p.lng }; });
         var poly = new google.maps.Polygon({
           map: map,
-          paths: pg.path.map(function (p) { return { lat: p.lat, lng: p.lng }; }),
-          strokeColor: pg.color || '#3b82f6',
+          paths: polyPath,
+          strokeColor: pg.color || '#2563eb', // 블록: 파란색
           strokeOpacity: 0.9,
           strokeWeight: 2,
-          fillColor: pg.color || '#3b82f6',
+          fillColor: pg.color || '#2563eb',
           fillOpacity: 0.15
+        });
+        poly.addListener('click', function (e) {
+          // 폴리곤의 중심점 계산
+          var bounds = new google.maps.LatLngBounds();
+          polyPath.forEach(function (p) {
+            bounds.extend(p);
+          });
+          var center = bounds.getCenter();
+          var html =
+            '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;">' +
+            '<div style="font-weight:700;margin-bottom:6px;">' + (pg.name || '영역') + '</div>';
+          if (pg.description) {
+            html += '<div style="font-size:13px;color:#6b7280;line-height:1.4;">' +
+              pg.description + '</div>';
+          }
+          html += '</div>';
+          openInfoWindowAt(e && e.latLng ? e.latLng : center, html);
         });
         _renderedPolygons.push(poly);
       });
@@ -341,6 +415,12 @@
       closeSiteSelectModal();
       if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
         MWMAP.sites.showSyncSuccessBadge();
+      }
+      // 로컬 KML(Data Layer)은 제거하고, Firebase 기반 객체만 남기기
+      if (MWMAP.map && MWMAP.map.data) {
+        MWMAP.map.data.forEach(function (feature) {
+          MWMAP.map.data.remove(feature);
+        });
       }
     }).catch(function (err) {
       console.error('KML 저장 실패:', err);

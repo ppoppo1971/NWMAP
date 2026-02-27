@@ -8,6 +8,17 @@
     var btn = document.getElementById('project-btn');
     var panel = document.getElementById('project-panel');
     var overlay = document.getElementById('project-panel-overlay');
+    var titleEl = document.getElementById('project-panel-title');
+
+    function forceReload() {
+      try {
+        var url = new URL(window.location.href);
+        url.searchParams.set('_nocache', Date.now());
+        window.location.href = url.toString();
+      } catch (e) {
+        window.location.reload(true);
+      }
+    }
 
     function openPanel() {
       // 다른 사이드 패널이 열려 있으면 먼저 닫기
@@ -26,6 +37,7 @@
 
     if (btn) btn.addEventListener('click', openPanel);
     if (overlay) overlay.addEventListener('click', closePanel);
+    if (titleEl) titleEl.addEventListener('click', forceReload);
     MWMAP.uiPanel.closePanel = closePanel;
   }
 

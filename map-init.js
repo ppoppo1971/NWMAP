@@ -78,6 +78,17 @@
     geocoder = new google.maps.Geocoder();
     MWMAP.map = map;
     MWMAP.geocoder = geocoder;
+
+    // 지도 선택 시 양쪽 사이드 패널 자동 닫기
+    google.maps.event.addListener(map, 'click', function () {
+      if (MWMAP.uiPanel && typeof MWMAP.uiPanel.closePanel === 'function') {
+        MWMAP.uiPanel.closePanel();
+      }
+      if (MWMAP.uiMapType && typeof MWMAP.uiMapType.closePanel === 'function') {
+        MWMAP.uiMapType.closePanel();
+      }
+    });
+
     return true;
   }
 
