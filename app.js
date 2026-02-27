@@ -23,6 +23,7 @@
     if (MWMAP.mapLocation && MWMAP.mapLocation.bind) MWMAP.mapLocation.bind();
     if (MWMAP.mapSearch && MWMAP.mapSearch.bind) MWMAP.mapSearch.bind();
     if (MWMAP.uiPanel && MWMAP.uiPanel.bind) MWMAP.uiPanel.bind();
+    if (MWMAP.kmlImport && MWMAP.kmlImport.bind) MWMAP.kmlImport.bind();
     if (MWMAP.uiMapType && MWMAP.uiMapType.bind) MWMAP.uiMapType.bind();
     if (MWMAP.sites && MWMAP.sites.bind) MWMAP.sites.bind();
   }

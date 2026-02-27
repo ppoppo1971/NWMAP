@@ -227,7 +227,8 @@ a[href^="https://maps.google.com/maps"],
 }
 #map-type-panel.hide { right: -220px; opacity: 0; pointer-events: none; }
 
-#map-type-inner-btn {
+#map-type-inner-btn,
+#kml-import-btn {
   width: 100%;
   min-height: 40px;
   box-sizing: border-box;
@@ -244,8 +245,10 @@ a[href^="https://maps.google.com/maps"],
   text-align: left;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
-#map-type-inner-btn:hover { background: rgba(0, 0, 0, 0.08); }
-#map-type-inner-btn:active { transform: scale(0.98); }
+#map-type-inner-btn:hover,
+#kml-import-btn:hover { background: rgba(0, 0, 0, 0.08); }
+#map-type-inner-btn:active,
+#kml-import-btn:active { transform: scale(0.98); }
 
 #project-panel-overlay {
   position: fixed;
@@ -639,7 +642,7 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">1029</div>
+  <div id="version-label" aria-hidden="true">0145</div>
   <span class="sync-badge hide" id="sync-badge" aria-live="polite">동기화됨</span>
   <div id="app-root">
     <div id="map"></div>
@@ -647,6 +650,7 @@ a[href^="https://maps.google.com/maps"],
     <button type="button" id="map-type-btn" title="지도 종류">M</button>
     <div id="map-type-panel-overlay" aria-hidden="true"></div>
     <div id="map-type-panel" class="hide">
+      <button type="button" id="kml-import-btn" title="KML/KMZ 파일 가져오기">KML/KMZ 가져오기</button>
       <button type="button" id="map-type-inner-btn" title="지도 종류 선택">MAP · 구글(도로)</button>
     </div>
     <div id="project-panel-overlay" aria-hidden="true"></div>
@@ -675,6 +679,14 @@ a[href^="https://maps.google.com/maps"],
       <button type="button" class="map-type-option" data-type="satellite">구글(위성)</button>
       <button type="button" class="map-type-option" data-type="브이월드일반">브이월드(도로)</button>
       <button type="button" class="map-type-option" data-type="브이월드영상">브이월드(위성)</button>
+    </div>
+  </div>
+
+  <!-- KML 저장 현장 선택 모달 -->
+  <div id="kml-site-overlay" aria-hidden="true">
+    <div id="kml-site-dialog" role="dialog" aria-labelledby="kml-site-dialog-title">
+      <h3 id="kml-site-dialog-title">KML 저장 위치 선택</h3>
+      <div id="kml-site-list"></div>
     </div>
   </div>
 
@@ -712,6 +724,9 @@ a[href^="https://maps.google.com/maps"],
 
   <!-- 전역 설정 → Firebase 인라인 → 모듈 → 진입점 (분리 전 구조) -->
   <script src="config.js"></script>
+  <!-- KML/KMZ → GeoJSON 변환용 라이브러리 (WMAP 참조) -->
+  <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script type="module">
     (function () {
       var C = window.MWMAP_CONFIG && window.MWMAP_CONFIG.FIREBASE;
@@ -744,6 +759,7 @@ a[href^="https://maps.google.com/maps"],
   <script src="map-search.js"></script>
   <script src="ui-panel.js"></script>
   <script src="ui-map-type.js"></script>
+  <script src="kml-import.js"></script>
   <script src="sites.js"></script>
   <script src="app.js"></script>
   <!-- Google Maps API: callback=initMap 으로 진입 -->

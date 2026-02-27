@@ -236,10 +236,21 @@
       var updated = existing.filter(function (item) {
         return !(item && item.id === _editingSiteId);
       });
-      return window.firestore.updateDoc(ref, {
+      var updateData = {
         customSchedules: updated,
         lastUpdated: window.firestore.serverTimestamp()
-      });
+      };
+      // 해당 현장에 연결된 KML 데이터도 함께 정리
+      if (data.kmlBySite && typeof data.kmlBySite === 'object') {
+        var kmlBySite = {};
+        for (var k in data.kmlBySite) {
+          if (Object.prototype.hasOwnProperty.call(data.kmlBySite, k) && k !== _editingSiteId) {
+            kmlBySite[k] = data.kmlBySite[k];
+          }
+        }
+        updateData.kmlBySite = kmlBySite;
+      }
+      return window.firestore.updateDoc(ref, updateData);
     }).then(function () {
       closeEditSiteModal();
       showSyncSuccessBadge();
@@ -339,5 +350,8 @@
     }
   }
 
-  MWMAP.sites = { bind: bind };
+  MWMAP.sites = {
+    bind: bind,
+    showSyncSuccessBadge: showSyncSuccessBadge
+  };
 })(window.MWMAP);

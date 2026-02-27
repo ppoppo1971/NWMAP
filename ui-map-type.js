@@ -16,6 +16,10 @@
     var modalDialog = document.getElementById('map-type-dialog');
 
     function openPanel() {
+      // 왼쪽 프로젝트 패널이 열려 있으면 먼저 닫기
+      if (MWMAP.uiPanel && typeof MWMAP.uiPanel.closePanel === 'function') {
+        MWMAP.uiPanel.closePanel();
+      }
       if (panel) panel.classList.remove('hide');
       if (overlay) overlay.classList.add('show');
       if (mapBtn) mapBtn.classList.add('hide');

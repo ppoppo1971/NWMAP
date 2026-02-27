@@ -10,6 +10,10 @@
     var overlay = document.getElementById('project-panel-overlay');
 
     function openPanel() {
+      // 다른 사이드 패널이 열려 있으면 먼저 닫기
+      if (MWMAP.uiMapType && typeof MWMAP.uiMapType.closePanel === 'function') {
+        MWMAP.uiMapType.closePanel();
+      }
       if (panel) panel.classList.remove('hide');
       if (overlay) overlay.classList.add('show');
       if (btn) btn.classList.add('hide');
