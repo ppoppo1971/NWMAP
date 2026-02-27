@@ -22,6 +22,7 @@
 
     if (btn) btn.addEventListener('click', openPanel);
     if (overlay) overlay.addEventListener('click', closePanel);
+    MWMAP.uiPanel.closePanel = closePanel;
   }
 
   MWMAP.uiPanel = { bind: bind };

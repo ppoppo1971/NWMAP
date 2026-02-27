@@ -133,6 +133,7 @@
       }) : unique;
 
       if (!filtered.length) {
+        closePanelAndDismissKeyboard();
         alert('현재 화면 범위 내에서 검색 결과가 없습니다. 지도를 이동·확대 후 다시 시도하세요.');
         return;
       }
@@ -148,6 +149,15 @@
       scored.sort(function (a, b) { return b._score - a._score; });
       var results = scored.map(function (x) { return x.result; });
       showMarkersOnMap(results);
+      closePanelAndDismissKeyboard();
+    }
+
+    /** 패널 닫기 + 입력란 포커스 해제(모바일 키보드 내리기) → 지도 확인 용이 */
+    function closePanelAndDismissKeyboard() {
+      if (MWMAP.uiPanel && typeof MWMAP.uiPanel.closePanel === 'function') {
+        MWMAP.uiPanel.closePanel();
+      }
+      if (inputEl) inputEl.blur();
     }
 
     /** 검색 결과를 목록 모달 없이 지도에 마커로 바로 표시 */
