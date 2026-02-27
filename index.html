@@ -102,6 +102,47 @@ a[href^="https://maps.google.com/maps"],
   #zoom-in-btn, #zoom-out-btn { width: 37px; height: 37px; font-size: 1.3rem; }
 }
 
+/* 현재위치 버튼 (WMAP 참조: 오른쪽 하단, safe-area) */
+#location-btn {
+  position: absolute;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 18;
+  background: transparent;
+  color: #333;
+  border: none;
+  border-radius: 50%;
+  width: 45px;
+  height: 45px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s ease;
+}
+#location-btn:hover {
+  background: rgba(51, 51, 51, 0.1);
+  transform: scale(1.05);
+}
+#location-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+#location-btn.loading {
+  background: #6b7280;
+  animation: location-pulse 1.5s infinite;
+}
+@keyframes location-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+@media (max-width: 480px) {
+  #location-btn { width: 37px; height: 37px; font-size: 1rem; bottom: 10px; right: 10px; }
+}
+
 #project-btn {
   position: absolute;
   top: max(20px, env(safe-area-inset-top));
@@ -473,7 +514,7 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0910</div>
+  <div id="version-label" aria-hidden="true">0942</div>
   <span class="sync-badge hide" id="sync-badge" aria-live="polite">동기화됨</span>
   <div id="app-root">
     <div id="map"></div>
@@ -493,6 +534,7 @@ a[href^="https://maps.google.com/maps"],
       <button type="button" id="zoom-in-btn" title="확대">+</button>
       <button type="button" id="zoom-out-btn" title="축소">−</button>
     </div>
+    <button type="button" id="location-btn" title="현재 위치로 이동">📌</button>
   </div>
 
   <!-- 새 현장 추가 모달 (X 없음, 모달 외 터치 시 닫기) -->
@@ -557,6 +599,7 @@ a[href^="https://maps.google.com/maps"],
     })();
   </script>
   <script src="map-init.js"></script>
+  <script src="map-location.js"></script>
   <script src="map-search.js"></script>
   <script src="ui-panel.js"></script>
   <script src="sites.js"></script>

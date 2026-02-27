@@ -20,6 +20,7 @@
     if (!MWMAP.mapInit.create()) return;
 
     if (MWMAP.mapInit.bindZoomControls) MWMAP.mapInit.bindZoomControls();
+    if (MWMAP.mapLocation && MWMAP.mapLocation.bind) MWMAP.mapLocation.bind();
     if (MWMAP.mapSearch && MWMAP.mapSearch.bind) MWMAP.mapSearch.bind();
     if (MWMAP.uiPanel && MWMAP.uiPanel.bind) MWMAP.uiPanel.bind();
     if (MWMAP.sites && MWMAP.sites.bind) MWMAP.sites.bind();
