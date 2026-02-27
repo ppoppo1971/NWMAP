@@ -75,6 +75,8 @@
           MWMAP.mapInit.setMapType(typeId);
           updateMapButtonLabel();
           closeModal();
+          // 지도 종류 선택 후 오른쪽 패널 자동 닫기
+          closePanel();
         }
       });
     });

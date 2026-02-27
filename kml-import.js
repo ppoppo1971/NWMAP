@@ -243,8 +243,8 @@
         });
         _currentInfoWindow.open(map);
 
-        // 축척 조정: 현재 줌이 기준보다 작으면 확대 (기준 10)
-        var targetZoom = 10;
+        // 축척 조정: 현재 줌이 기준보다 작으면 확대 (기준 20)
+        var targetZoom = 20;
         var currentZoom = map.getZoom();
         if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
           map.setZoom(targetZoom);
@@ -323,23 +323,7 @@
           fillColor: pg.color || '#2563eb',
           fillOpacity: 0.15
         });
-        poly.addListener('click', function (e) {
-          // 폴리곤의 중심점 계산
-          var bounds = new google.maps.LatLngBounds();
-          polyPath.forEach(function (p) {
-            bounds.extend(p);
-          });
-          var center = bounds.getCenter();
-          var html =
-            '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;">' +
-            '<div style="font-weight:700;margin-bottom:6px;">' + (pg.name || '영역') + '</div>';
-          if (pg.description) {
-            html += '<div style="font-size:13px;color:#6b7280;line-height:1.4;">' +
-              pg.description + '</div>';
-          }
-          html += '</div>';
-          openInfoWindowAt(e && e.latLng ? e.latLng : center, html);
-        });
+        // 블록(폴리곤)은 비활성: InfoWindow 리스너를 붙이지 않음
         _renderedPolygons.push(poly);
       });
     }
@@ -421,6 +405,10 @@
         MWMAP.map.data.forEach(function (feature) {
           MWMAP.map.data.remove(feature);
         });
+      }
+      // KML 저장 후 오른쪽 지도종류 패널도 자동으로 닫기
+      if (MWMAP.uiMapType && typeof MWMAP.uiMapType.closePanel === 'function') {
+        MWMAP.uiMapType.closePanel();
       }
     }).catch(function (err) {
       console.error('KML 저장 실패:', err);
