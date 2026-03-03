@@ -300,6 +300,26 @@
         }
         updateData.kmlBySite = kmlBySite;
       }
+      // 해당 현장에 연결된 수동 마커 데이터도 함께 정리
+      if (data.manualMarkersBySite && typeof data.manualMarkersBySite === 'object') {
+        var manualMarkersBySite = {};
+        for (var mk in data.manualMarkersBySite) {
+          if (Object.prototype.hasOwnProperty.call(data.manualMarkersBySite, mk) && mk !== _editingSiteId) {
+            manualMarkersBySite[mk] = data.manualMarkersBySite[mk];
+          }
+        }
+        updateData.manualMarkersBySite = manualMarkersBySite;
+      }
+      // 해당 현장에 연결된 수동 경로 데이터도 함께 정리
+      if (data.manualRoutesBySite && typeof data.manualRoutesBySite === 'object') {
+        var manualRoutesBySite = {};
+        for (var rk in data.manualRoutesBySite) {
+          if (Object.prototype.hasOwnProperty.call(data.manualRoutesBySite, rk) && rk !== _editingSiteId) {
+            manualRoutesBySite[rk] = data.manualRoutesBySite[rk];
+          }
+        }
+        updateData.manualRoutesBySite = manualRoutesBySite;
+      }
       return window.firestore.updateDoc(ref, updateData);
     }).then(function () {
       closeEditSiteModal();

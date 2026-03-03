@@ -15,6 +15,15 @@
   var _mapClickCloseListener = null;
   var _latestData = null;
   var _selectedSiteId = null;
+  var _isManualMarkerMode = false;
+  var _manualMarkersTemp = [];
+  var _renderedManualMarkers = [];
+  var _mapClickManualListener = null;
+  var _isManualRouteMode = false;
+  var _manualRoutePointsTemp = [];
+  var _renderedManualRoutes = [];
+  var _mapClickManualRouteListener = null;
+  var _manualRouteTempLine = null;
 
   function ensureDeps() {
     if (typeof toGeoJSON === 'undefined') {
@@ -76,11 +85,80 @@
     if (parserError && parserError.length) {
       throw new Error('KML 파일 파싱 실패: 유효하지 않은 XML 형식');
     }
+    // Folder 이름(마커/경로 등)을 ExtendedData.layer 로 태깅
+    try {
+      tagFolderLayersForManualObjects(kmlDoc);
+    } catch (e) {
+      console.warn('Folder 레이어 태깅 중 오류 (무시 가능):', e);
+    }
     var geoJson = toGeoJSON.kml(kmlDoc);
     if (!geoJson || !Array.isArray(geoJson.features) || !geoJson.features.length) {
       throw new Error('KML 파일에 유효한 데이터가 없습니다.');
     }
     return geoJson;
+  }
+
+  // KML의 Folder 이름(예: 마커, 경로)을 이용해
+  // 해당 Folder 아래의 Placemark 들에 ExtendedData/Data name="layer" 값을 주입
+  // → toGeoJSON 변환 후 properties.layer 로 활용
+  function tagFolderLayersForManualObjects(doc) {
+    if (!doc || !doc.getElementsByTagName) return;
+    var folders = doc.getElementsByTagName('Folder');
+    if (!folders || !folders.length) return;
+
+    for (var i = 0; i < folders.length; i++) {
+      var folder = folders[i];
+      if (!folder) continue;
+      var nameEls = folder.getElementsByTagName('name');
+      if (!nameEls || !nameEls.length) continue;
+      var folderName = (nameEls[0].textContent || '').trim();
+      if (!folderName) continue;
+
+      var lower = folderName.toLowerCase();
+      var layerTag = null;
+      if (lower === '마커' || lower === 'marker') {
+        layerTag = 'marker';
+      } else if (lower === '경로' || lower === 'route') {
+        layerTag = 'route';
+      }
+      if (!layerTag) continue;
+
+      var placemarks = folder.getElementsByTagName('Placemark');
+      for (var j = 0; j < placemarks.length; j++) {
+        var pm = placemarks[j];
+        if (!pm) continue;
+        var ext = pm.getElementsByTagName('ExtendedData')[0];
+        if (!ext) {
+          ext = doc.createElement('ExtendedData');
+          pm.appendChild(ext);
+        }
+        var foundLayer = false;
+        var dataEls = ext.getElementsByTagName('Data');
+        for (var k = 0; k < dataEls.length; k++) {
+          var d = dataEls[k];
+          if (d.getAttribute && d.getAttribute('name') === 'layer') {
+            var valEls = d.getElementsByTagName('value');
+            if (valEls && valEls.length) {
+              valEls[0].textContent = layerTag;
+            } else {
+              var v = doc.createElement('value');
+              v.textContent = layerTag;
+              d.appendChild(v);
+            }
+            foundLayer = true;
+            break;
+          }
+        }
+        if (!foundLayer) {
+          var dataEl = doc.createElement('Data');
+          dataEl.setAttribute('name', 'layer');
+          var valueEl = doc.createElement('value');
+          valueEl.textContent = layerTag;
+          dataEl.appendChild(valueEl);
+          ext.appendChild(dataEl);
+        }
+      }
+    }
   }
 
   function displayKmlOnMap(geoJson) {
@@ -170,37 +248,81 @@
     _renderedMarkers = [];
     _renderedLines = [];
     _renderedPolygons = [];
+    _renderedManualMarkers.forEach(function (m) {
+      if (m && m.setMap) m.setMap(null);
+    });
+    _renderedManualMarkers = [];
+    _renderedManualRoutes.forEach(function (r) {
+      if (r && r.setMap) r.setMap(null);
+    });
+    _renderedManualRoutes = [];
+    if (_manualRouteTempLine && _manualRouteTempLine.setMap) {
+      _manualRouteTempLine.setMap(null);
+    }
+    _manualRouteTempLine = null;
   }
 
   function buildShapesFromGeoJson(geoJson) {
     var shapes = { points: [], lines: [], polygons: [] };
-    if (!geoJson || !Array.isArray(geoJson.features)) return shapes;
+    var manualMarkers = [];
+    var manualRoutes = [];
+    if (!geoJson || !Array.isArray(geoJson.features)) {
+      return { shapes: shapes, manualMarkers: manualMarkers, manualRoutes: manualRoutes };
+    }
 
     geoJson.features.forEach(function (f) {
       if (!f || !f.geometry) return;
       var g = f.geometry;
       var props = f.properties || {};
+      var layer = (props.layer || props.LAYER || '').toString().toLowerCase();
+
       if (g.type === 'Point') {
         var c = g.coordinates;
         if (Array.isArray(c) && c.length >= 2) {
+          var latP = c[1];
+          var lngP = c[0];
           var isText = !!(props.name || props.description);
-          shapes.points.push({
-            lat: c[1],
-            lng: c[0],
+          var pointObj = {
+            lat: latP,
+            lng: lngP,
             type: isText ? 'text' : 'point',
             title: props.name || '',
             description: props.description || ''
-          });
+          };
+
+          // DXF → KML에서 마커용 레이어(MARKER/마커 등)인 경우: 수동 마커로 취급
+          if (layer === 'marker' || layer === '마커') {
+            manualMarkers.push({
+              lat: latP,
+              lng: lngP,
+              title: pointObj.title,
+              description: pointObj.description,
+              createdAt: new Date().toISOString()
+            });
+          } else {
+            shapes.points.push(pointObj);
+          }
         }
       } else if (g.type === 'LineString') {
         var coords = Array.isArray(g.coordinates) ? g.coordinates.slice() : [];
         if (coords.length >= 2) {
-          shapes.lines.push({
-            path: coords.map(function (p) { return { lat: p[1], lng: p[0] }; }),
-            name: props.name || '',
-            description: props.description || '',
-            color: props.stroke || '#3b82f6'
-          });
+          var pathArr = coords.map(function (p) { return { lat: p[1], lng: p[0] }; });
+          // DXF → KML에서 경로용 레이어(ROUTE/경로 등)인 경우: 수동 경로로 취급
+          if (layer === 'route' || layer === '경로') {
+            manualRoutes.push({
+              path: pathArr,
+              title: props.name || '',
+              description: props.description || '',
+              createdAt: new Date().toISOString()
+            });
+          } else {
+            shapes.lines.push({
+              path: pathArr,
+              name: props.name || '',
+              description: props.description || '',
+              color: props.stroke || '#3b82f6'
+            });
+          }
         }
       } else if (g.type === 'Polygon' && Array.isArray(g.coordinates) && g.coordinates.length) {
         var ring = g.coordinates[0] || [];
@@ -216,7 +338,11 @@
       }
     });
 
-    return shapes;
+    return {
+      shapes: shapes,
+      manualMarkers: manualMarkers,
+      manualRoutes: manualRoutes
+    };
   }
 
   // Firestore에서 읽어온 kmlBySite 데이터를 기반으로
@@ -296,8 +422,8 @@
       if (!payloadSel || !payloadSel.shapes) return;
       var shapesSel = payloadSel.shapes;
 
-      // 공통 InfoWindow 닫기/맵 클릭 리스너 설정 함수 (텍스트 전용)
-      function openInfoWindowAt(latLng, html) {
+      // 공통 InfoWindow 닫기/맵 클릭 리스너 설정 함수
+      function openInfoWindowAt(latLng, html, onDomReady) {
         if (!latLng) return;
         if (_currentInfoWindow) {
           _currentInfoWindow.close();
@@ -316,6 +442,16 @@
           map.setZoom(targetZoom);
         }
         map.panTo(latLng);
+
+        if (onDomReady && google && google.maps && google.maps.event) {
+          google.maps.event.addListenerOnce(_currentInfoWindow, 'domready', function () {
+            try {
+              onDomReady();
+            } catch (e) {
+              console.warn('InfoWindow domready handler error:', e);
+            }
+          });
+        }
 
         // 지도 다른 곳 클릭 시 InfoWindow 닫기
         if (_mapClickCloseListener) {
@@ -357,7 +493,7 @@
                 pt.description + '</div>';
             }
             html += '</div>';
-            openInfoWindowAt(pos, html);
+            openInfoWindowAt(pos, html, null);
           });
         }
         _renderedMarkers.push(marker);
@@ -392,6 +528,304 @@
         // 블록(폴리곤)은 비활성: InfoWindow 리스너를 붙이지 않음
         _renderedPolygons.push(poly);
       });
+
+      // 3) 선택된 현장에 저장된 수동 마커(빨간 원) 렌더링
+      var manualMarkersBySite = (data && data.manualMarkersBySite && typeof data.manualMarkersBySite === 'object')
+        ? data.manualMarkersBySite
+        : null;
+      if (manualMarkersBySite && manualMarkersBySite[_selectedSiteId] && Array.isArray(manualMarkersBySite[_selectedSiteId].markers)) {
+        var manualList = manualMarkersBySite[_selectedSiteId].markers;
+        manualList.forEach(function (mm, idx) {
+          if (!mm || typeof mm.lat !== 'number' || typeof mm.lng !== 'number') return;
+          var mPos = { lat: mm.lat, lng: mm.lng };
+          var m = new google.maps.Marker({
+            map: map,
+            position: mPos,
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 4,
+              fillColor: '#ef4444', // 수동 마커: 빨간색 (텍스트 마커와 동일 크기)
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 1
+            }
+          });
+          // 어떤 현장의 몇 번째 마커인지 메타정보 저장
+          m.__manualMeta = { siteId: _selectedSiteId, index: idx };
+
+          // 클릭 시 정보창 + 편집
+          m.addListener('click', function () {
+            var meta = m.__manualMeta;
+            if (!meta || !manualMarkersBySite[meta.siteId]) return;
+            var currentPayload = manualMarkersBySite[meta.siteId];
+            if (!currentPayload || !Array.isArray(currentPayload.markers)) return;
+            if (meta.index < 0 || meta.index >= currentPayload.markers.length) return;
+            var cur = currentPayload.markers[meta.index] || {};
+
+            var idSuffix = String(meta.siteId) + '_' + String(meta.index);
+            var titleText = cur.title || '';
+            var descText = cur.description || '';
+
+            var html =
+              '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
+              '<div style="margin-bottom:6px;">' +
+              '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">새 제목</label>' +
+              '<input id="manual-marker-title-' + idSuffix + '" type="text" ' +
+              'style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px;" ' +
+              'value="' + (titleText || '') + '">' +
+              '</div>' +
+              '<div style="margin-bottom:8px;">' +
+              '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">LINK</label>' +
+              '<textarea id="manual-marker-desc-' + idSuffix + '" ' +
+              'style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px;min-height:60px;">' +
+              (descText || '') + '</textarea>' +
+              '</div>' +
+              '<div style="display:flex;gap:6px;">' +
+              '<button id="manual-marker-save-' + idSuffix + '" ' +
+              'style="flex:1;padding:8px 10px;border:none;border-radius:6px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:13px;font-weight:500;cursor:pointer;">저장</button>' +
+              '<button id="manual-marker-delete-' + idSuffix + '" ' +
+              'style="flex:1;padding:8px 10px;border:none;border-radius:6px;background:#ef4444;color:#fff;font-size:13px;font-weight:500;cursor:pointer;">삭제</button>' +
+              '</div>' +
+              '</div>';
+
+            openInfoWindowAt(mPos, html, function () {
+              var saveBtn = document.getElementById('manual-marker-save-' + idSuffix);
+              var deleteBtn = document.getElementById('manual-marker-delete-' + idSuffix);
+              var titleInput = document.getElementById('manual-marker-title-' + idSuffix);
+              var descInput = document.getElementById('manual-marker-desc-' + idSuffix);
+              if (saveBtn) {
+                saveBtn.addEventListener('click', function () {
+                  var newTitle = titleInput ? titleInput.value.trim() : '';
+                  var newDesc = descInput ? descInput.value.trim() : '';
+                  if (!window.firestore || !window.db) {
+                    alert('Firebase 연결이 되지 않았습니다. 잠시 후 다시 시도해 주세요.');
+                    return;
+                  }
+                  var firestore = window.firestore;
+                  var ref = firestore.doc(window.db, 'users', 'currentUser');
+                  firestore.getDoc(ref).then(function (snap) {
+                    if (!snap.exists()) return;
+                    var dataFull = snap.data() || {};
+                    var bySite = dataFull.manualMarkersBySite || {};
+                    var payloadSite = bySite[meta.siteId];
+                    if (!payloadSite || !Array.isArray(payloadSite.markers)) return;
+                    if (meta.index < 0 || meta.index >= payloadSite.markers.length) return;
+                    var markersArr = payloadSite.markers.slice();
+                    var target = markersArr[meta.index] || {};
+                    var updatedMarker = {};
+                    for (var k in target) {
+                      if (Object.prototype.hasOwnProperty.call(target, k)) {
+                        updatedMarker[k] = target[k];
+                      }
+                    }
+                    updatedMarker.title = newTitle;
+                    updatedMarker.description = newDesc;
+                    markersArr[meta.index] = updatedMarker;
+
+                    var updateData = {};
+                    updateData['manualMarkersBySite.' + meta.siteId] = {
+                      markers: markersArr,
+                      updatedAt: new Date().toISOString()
+                    };
+                    updateData.lastUpdated = firestore.serverTimestamp();
+                    return firestore.updateDoc(ref, updateData);
+                  }).then(function () {
+                    if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+                      MWMAP.sites.showSyncSuccessBadge();
+                    }
+                    if (_currentInfoWindow) {
+                      _currentInfoWindow.close();
+                      _currentInfoWindow = null;
+                    }
+                  }).catch(function (err) {
+                    console.error('수동 마커 정보 저장 실패:', err);
+                    alert('마커 정보를 저장하는 데 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+                  });
+                });
+              }
+
+              if (deleteBtn) {
+                deleteBtn.addEventListener('click', function () {
+                  if (!window.firestore || !window.db) {
+                    alert('Firebase 연결이 되지 않았습니다. 잠시 후 다시 시도해 주세요.');
+                    return;
+                  }
+                  var firestore = window.firestore;
+                  var ref = firestore.doc(window.db, 'users', 'currentUser');
+                  firestore.getDoc(ref).then(function (snap) {
+                    if (!snap.exists()) return;
+                    var dataFull = snap.data() || {};
+                    var bySite = dataFull.manualMarkersBySite || {};
+                    var payloadSite = bySite[meta.siteId];
+                    if (!payloadSite || !Array.isArray(payloadSite.markers)) return;
+                    var markersArr = payloadSite.markers.slice();
+                    if (meta.index < 0 || meta.index >= markersArr.length) return;
+                    markersArr.splice(meta.index, 1);
+
+                    var updateData = {};
+                    updateData['manualMarkersBySite.' + meta.siteId] = {
+                      markers: markersArr,
+                      updatedAt: new Date().toISOString()
+                    };
+                    updateData.lastUpdated = firestore.serverTimestamp();
+                    return firestore.updateDoc(ref, updateData);
+                  }).then(function () {
+                    if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+                      MWMAP.sites.showSyncSuccessBadge();
+                    }
+                    if (m && m.setMap) {
+                      m.setMap(null);
+                    }
+                    var idxRendered = _renderedManualMarkers.indexOf(m);
+                    if (idxRendered > -1) {
+                      _renderedManualMarkers.splice(idxRendered, 1);
+                    }
+                    if (_currentInfoWindow) {
+                      _currentInfoWindow.close();
+                      _currentInfoWindow = null;
+                    }
+                  }).catch(function (err) {
+                    console.error('수동 마커 삭제 실패:', err);
+                    alert('마커를 삭제하는 데 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+                  });
+                });
+              }
+            });
+          });
+          _renderedManualMarkers.push(m);
+        });
+      }
+
+      // 4) 선택된 현장에 저장된 수동 경로(라인) 렌더링
+      var manualRoutesBySite = (data && data.manualRoutesBySite && typeof data.manualRoutesBySite === 'object')
+        ? data.manualRoutesBySite
+        : null;
+      if (manualRoutesBySite && manualRoutesBySite[_selectedSiteId] && Array.isArray(manualRoutesBySite[_selectedSiteId].routes)) {
+        var routeList = manualRoutesBySite[_selectedSiteId].routes;
+        routeList.forEach(function (rt, rIdx) {
+          if (!rt || !Array.isArray(rt.path) || rt.path.length < 2) return;
+          var pathLatLng = rt.path.map(function (p) {
+            if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return null;
+            return { lat: p.lat, lng: p.lng };
+          }).filter(function (p) { return !!p; });
+          if (pathLatLng.length < 2) return;
+
+          // 메인 수동 경로 라인 (굵은 주황색 실선)
+          var line = new google.maps.Polyline({
+            map: map,
+            path: pathLatLng,
+            strokeColor: '#f97316', // 주황색 경로
+            strokeOpacity: 0.95,
+            strokeWeight: 5,
+            zIndex: 20
+          });
+
+          // 점선 오버레이 (흰 점 + 주황 테두리)로 하이라이트
+          var dottedLine = new google.maps.Polyline({
+            map: map,
+            path: pathLatLng,
+            strokeColor: '#ffffff',
+            strokeOpacity: 0, // 기본 실선은 보이지 않게
+            strokeWeight: 0,
+            zIndex: 21,
+            icons: [{
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                fillColor: '#ffffff',
+                fillOpacity: 1,
+                strokeColor: '#f97316',
+                strokeWeight: 1,
+                scale: 2
+              },
+              offset: '0',
+              repeat: '16px'
+            }]
+          });
+
+          line.__manualRouteMeta = { siteId: _selectedSiteId, index: rIdx };
+          line.__dottedOverlay = dottedLine;
+
+          line.addListener('click', function (event) {
+            var meta = line.__manualRouteMeta;
+            if (!meta || !manualRoutesBySite[meta.siteId]) return;
+            var payloadSite = manualRoutesBySite[meta.siteId];
+            if (!payloadSite || !Array.isArray(payloadSite.routes)) return;
+            if (meta.index < 0 || meta.index >= payloadSite.routes.length) return;
+            var route = payloadSite.routes[meta.index];
+            if (!route || !Array.isArray(route.path) || route.path.length < 2) return;
+
+            var lengthKm = computeRouteDistanceKm(route.path);
+            var pos = event && event.latLng ? event.latLng : new google.maps.LatLng(pathLatLng[0].lat, pathLatLng[0].lng);
+            var idSuffix = String(meta.siteId) + '_' + String(meta.index);
+
+            var html =
+              '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
+              '<div style="font-size:13px;color:#111827;margin-bottom:8px;">경로 길이: ' + lengthKm.toFixed(2) + ' km</div>' +
+              '<button id="manual-route-delete-' + idSuffix + '" ' +
+              'style="width:100%;padding:8px 10px;border:none;border-radius:6px;background:#ef4444;color:#fff;font-size:13px;font-weight:500;cursor:pointer;">삭제</button>' +
+              '</div>';
+
+            openInfoWindowAt(pos, html, function () {
+              var delBtn = document.getElementById('manual-route-delete-' + idSuffix);
+              if (!delBtn) return;
+              delBtn.addEventListener('click', function () {
+                if (!window.firestore || !window.db) {
+                  alert('Firebase 연결이 되지 않았습니다. 잠시 후 다시 시도해 주세요.');
+                  return;
+                }
+                var firestore = window.firestore;
+                var ref = firestore.doc(window.db, 'users', 'currentUser');
+                firestore.getDoc(ref).then(function (snap) {
+                  if (!snap.exists()) return;
+                  var dataFull = snap.data() || {};
+                  var bySite = dataFull.manualRoutesBySite || {};
+                  var payloadSiteFull = bySite[meta.siteId];
+                  if (!payloadSiteFull || !Array.isArray(payloadSiteFull.routes)) return;
+                  var routesArr = payloadSiteFull.routes.slice();
+                  if (meta.index < 0 || meta.index >= routesArr.length) return;
+                  routesArr.splice(meta.index, 1);
+
+                  var updateData = {};
+                  updateData['manualRoutesBySite.' + meta.siteId] = {
+                    routes: routesArr,
+                    updatedAt: new Date().toISOString()
+                  };
+                  updateData.lastUpdated = firestore.serverTimestamp();
+                  return firestore.updateDoc(ref, updateData);
+                }).then(function () {
+                  if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+                    MWMAP.sites.showSyncSuccessBadge();
+                  }
+                  if (line && line.setMap) {
+                    line.setMap(null);
+                  }
+                  if (line.__dottedOverlay && line.__dottedOverlay.setMap) {
+                    line.__dottedOverlay.setMap(null);
+                  }
+                  var idxRendered = _renderedManualRoutes.indexOf(line);
+                  if (idxRendered > -1) {
+                    _renderedManualRoutes.splice(idxRendered, 1);
+                  }
+                  var idxDot = _renderedManualRoutes.indexOf(dottedLine);
+                  if (idxDot > -1) {
+                    _renderedManualRoutes.splice(idxDot, 1);
+                  }
+                  if (_currentInfoWindow) {
+                    _currentInfoWindow.close();
+                    _currentInfoWindow = null;
+                  }
+                }).catch(function (err) {
+                  console.error('수동 경로 삭제 실패:', err);
+                  alert('경로를 삭제하는 데 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+                });
+              });
+            });
+          });
+
+          _renderedManualRoutes.push(line);
+          _renderedManualRoutes.push(dottedLine);
+        });
+      }
     }
   }
 
@@ -440,6 +874,61 @@
   function closeSiteSelectModal() {
     var overlay = document.getElementById('kml-site-overlay');
     if (overlay) overlay.classList.remove('show');
+  }
+
+  function openSiteSelectModalForManualMarkers(markers) {
+    var overlay = document.getElementById('kml-site-overlay');
+    var listEl = document.getElementById('kml-site-list');
+    if (!overlay || !listEl) return;
+
+    if (!markers || !markers.length) return;
+
+    var sites = getSitesForSelection();
+    if (!sites.length) {
+      alert('먼저 현장을 추가한 뒤 마커를 저장해 주세요.');
+      return;
+    }
+
+    listEl.innerHTML = '';
+    sites.forEach(function (site) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'kml-site-item-btn';
+      btn.textContent = site.title || '(이름 없음)';
+      btn.addEventListener('click', function () {
+        saveManualMarkersForSite(site.id, markers);
+      });
+      listEl.appendChild(btn);
+    });
+
+    overlay.classList.add('show');
+  }
+
+  function openSiteSelectModalForManualRoute(path) {
+    var overlay = document.getElementById('kml-site-overlay');
+    var listEl = document.getElementById('kml-site-list');
+    if (!overlay || !listEl) return;
+    if (!path || !path.length) return;
+
+    var sites = getSitesForSelection();
+    if (!sites.length) {
+      alert('먼저 현장을 추가한 뒤 경로를 저장해 주세요.');
+      return;
+    }
+
+    listEl.innerHTML = '';
+    sites.forEach(function (site) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'kml-site-item-btn';
+      btn.textContent = site.title || '(이름 없음)';
+      btn.addEventListener('click', function () {
+        saveManualRouteForSite(site.id, path);
+      });
+      listEl.appendChild(btn);
+    });
+
+    overlay.classList.add('show');
   }
 
   function focusSite(siteId) {
@@ -505,6 +994,13 @@
       updateData.lastUpdated = firestore.serverTimestamp();
       return firestore.updateDoc(ref, updateData);
     }).then(function () {
+      // KML 저장 이후, KML에서 추출된 수동 마커/경로가 있다면 함께 저장
+      if (payload.manualMarkersFromKml && payload.manualMarkersFromKml.length) {
+        saveManualMarkersForSite(siteId, payload.manualMarkersFromKml);
+      }
+      if (payload.manualRoutesFromKml && payload.manualRoutesFromKml.length) {
+        saveManualRouteForSite(siteId, payload.manualRoutesFromKml);
+      }
       closeSiteSelectModal();
       if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
         MWMAP.sites.showSyncSuccessBadge();
@@ -525,6 +1021,166 @@
     });
   }
 
+  function saveManualMarkersForSite(siteId, markers) {
+    if (!siteId || !markers || !markers.length) return;
+    var firestore = window.firestore;
+    var ref = firestore.doc(window.db, 'users', 'currentUser');
+
+    firestore.getDoc(ref).then(function (snap) {
+      if (!snap.exists()) {
+        var payloadNew = {
+          markers: markers.slice(),
+          updatedAt: new Date().toISOString()
+        };
+        var manualObj = {};
+        manualObj[siteId] = payloadNew;
+        return firestore.setDoc(ref, {
+          customSchedules: [],
+          kmlBySite: {},
+          manualMarkersBySite: manualObj,
+          lastUpdated: firestore.serverTimestamp()
+        });
+      }
+      var data = snap.data() || {};
+      var existingBySite = data.manualMarkersBySite || {};
+      var existingPayload = existingBySite[siteId] || {};
+      var existingMarkers = Array.isArray(existingPayload.markers) ? existingPayload.markers : [];
+      var merged = existingMarkers.concat(markers.slice());
+
+      var updateData = {};
+      updateData['manualMarkersBySite.' + siteId] = {
+        markers: merged,
+        updatedAt: new Date().toISOString()
+      };
+      updateData.lastUpdated = firestore.serverTimestamp();
+      return firestore.updateDoc(ref, updateData);
+    }).then(function () {
+      closeSiteSelectModal();
+      if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+        MWMAP.sites.showSyncSuccessBadge();
+      }
+      // 임시 수동 마커는 저장 후 지도에서 제거 (스냅샷 기반으로 다시 렌더링)
+      _renderedManualMarkers.forEach(function (m) {
+        if (m && m.setMap) m.setMap(null);
+      });
+      _renderedManualMarkers = [];
+      _manualMarkersTemp = [];
+      _isManualMarkerMode = false;
+      if (_mapClickManualListener && google && google.maps && google.maps.event) {
+        google.maps.event.removeListener(_mapClickManualListener);
+        _mapClickManualListener = null;
+      }
+      var markerBtn = document.getElementById('add-marker-btn');
+      if (markerBtn) {
+        markerBtn.textContent = '마커추가';
+        markerBtn.style.background = '';
+        markerBtn.style.color = '';
+      }
+    }).catch(function (err) {
+      console.error('수동 마커 저장 실패:', err);
+      alert('마커 데이터를 저장하는 데 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+    });
+  }
+
+  function saveManualRouteForSite(siteId, pathOrRoutes) {
+    if (!siteId || !pathOrRoutes || !pathOrRoutes.length) return;
+    var firestore = window.firestore;
+    var ref = firestore.doc(window.db, 'users', 'currentUser');
+
+    var routesToAdd = [];
+    // pathOrRoutes가 단일 경로(path 배열)인지, 이미 객체 배열인지 판별
+    if (Array.isArray(pathOrRoutes) && pathOrRoutes.length && typeof pathOrRoutes[0].lat === 'number') {
+      routesToAdd.push({
+        path: pathOrRoutes.slice(),
+        title: '',
+        description: '',
+        createdAt: new Date().toISOString()
+      });
+    } else if (Array.isArray(pathOrRoutes)) {
+      routesToAdd = pathOrRoutes.slice();
+    }
+    if (!routesToAdd.length) return;
+
+    firestore.getDoc(ref).then(function (snap) {
+      if (!snap.exists()) {
+        var routeBySite = {};
+        routeBySite[siteId] = {
+          routes: routesToAdd,
+          updatedAt: new Date().toISOString()
+        };
+        return firestore.setDoc(ref, {
+          customSchedules: [],
+          kmlBySite: {},
+          manualMarkersBySite: {},
+          manualRoutesBySite: routeBySite,
+          lastUpdated: firestore.serverTimestamp()
+        });
+      }
+      var data = snap.data() || {};
+      var existingBySite = data.manualRoutesBySite || {};
+      var existingPayload = existingBySite[siteId] || {};
+      var existingRoutes = Array.isArray(existingPayload.routes) ? existingPayload.routes : [];
+      var merged = existingRoutes.concat(routesToAdd);
+
+      var updateData = {};
+      updateData['manualRoutesBySite.' + siteId] = {
+        routes: merged,
+        updatedAt: new Date().toISOString()
+      };
+      updateData.lastUpdated = firestore.serverTimestamp();
+      return firestore.updateDoc(ref, updateData);
+    }).then(function () {
+      closeSiteSelectModal();
+      if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+        MWMAP.sites.showSyncSuccessBadge();
+      }
+      // 임시 경로는 저장 후 지도에서 제거 (스냅샷 기반으로 다시 렌더링)
+      if (_manualRouteTempLine && _manualRouteTempLine.setMap) {
+        _manualRouteTempLine.setMap(null);
+      }
+      _manualRouteTempLine = null;
+      _manualRoutePointsTemp = [];
+      _isManualRouteMode = false;
+      if (_mapClickManualRouteListener && google && google.maps && google.maps.event) {
+        google.maps.event.removeListener(_mapClickManualRouteListener);
+        _mapClickManualRouteListener = null;
+      }
+      var routeBtn = document.getElementById('add-route-btn');
+      if (routeBtn) {
+        routeBtn.textContent = '경로추가';
+        routeBtn.style.background = '';
+        routeBtn.style.color = '';
+      }
+    }).catch(function (err) {
+      console.error('수동 경로 저장 실패:', err);
+      alert('경로 데이터를 저장하는 데 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+    });
+  }
+
+  function computeRouteDistanceKm(path) {
+    if (!Array.isArray(path) || path.length < 2) return 0;
+    var R = 6371; // 지구 반지름 km
+    var total = 0;
+    for (var i = 1; i < path.length; i++) {
+      var p1 = path[i - 1];
+      var p2 = path[i];
+      if (!p1 || !p2 || typeof p1.lat !== 'number' || typeof p1.lng !== 'number' ||
+        typeof p2.lat !== 'number' || typeof p2.lng !== 'number') {
+        continue;
+      }
+      var lat1 = p1.lat * Math.PI / 180;
+      var lat2 = p2.lat * Math.PI / 180;
+      var dLat = (p2.lat - p1.lat) * Math.PI / 180;
+      var dLng = (p2.lng - p1.lng) * Math.PI / 180;
+      var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1) * Math.cos(lat2) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      total += R * c;
+    }
+    return total;
+  }
+
   function handleKmlFile(file) {
     if (!file || !file.name) return;
     if (!ensureDeps()) return;
@@ -532,7 +1188,10 @@
     loadKmlTextFromFile(file).then(function (kmlText) {
       var geoJson = parseKmlToGeoJson(kmlText);
       displayKmlOnMap(geoJson);
-      var shapes = buildShapesFromGeoJson(geoJson);
+      var parsed = buildShapesFromGeoJson(geoJson);
+      var shapes = parsed.shapes || { points: [], lines: [], polygons: [] };
+      var manualMarkers = parsed.manualMarkers || [];
+      var manualRoutes = parsed.manualRoutes || [];
       var total = shapes.points.length + shapes.lines.length + shapes.polygons.length;
       if (!total) {
         alert('표시할 수 있는 객체가 없습니다.');
@@ -545,8 +1204,37 @@
         pointCount: shapes.points.length,
         lineCount: shapes.lines.length,
         polygonCount: shapes.polygons.length,
-        shapes: shapes
+        shapes: shapes,
+        manualMarkersFromKml: manualMarkers,
+        manualRoutesFromKml: manualRoutes
       };
+
+      // Firestore 업로드 전에 요약 데이터 크기(대략)를 사용자에게 안내
+      try {
+        var previewObj = {
+          shapes: shapes,
+          manualMarkers: manualMarkers,
+          manualRoutes: manualRoutes
+        };
+        var jsonStr = JSON.stringify(previewObj);
+        var byteSize;
+        if (window.TextEncoder) {
+          byteSize = new TextEncoder().encode(jsonStr).length;
+        } else {
+          // 대략적인 추정: 1문자 ≈ 2바이트로 계산
+          byteSize = jsonStr.length * 2;
+        }
+        var kb = byteSize / 1024;
+        var msg =
+          '이 KML에서 추출된 요약 데이터의 예상 크기: ' +
+          kb.toFixed(1) + ' KB\n' +
+          '(Firestore 문서 한도: 약 1024 KB)\n\n' +
+          '계속해서 업로드를 진행합니다.';
+        alert(msg);
+      } catch (e) {
+        console.warn('요약 데이터 크기 계산 실패(무시 가능):', e);
+      }
+
       openSiteSelectModal(payload);
     }).catch(function (err) {
       console.error('KML/KMZ 처리 실패:', err);
@@ -556,6 +1244,8 @@
 
   function bind() {
     var importBtn = document.getElementById('kml-import-btn');
+    var manualMarkerBtn = document.getElementById('add-marker-btn');
+    var manualRouteBtn = document.getElementById('add-route-btn');
     if (!importBtn) return;
 
     var fileInput = document.getElementById('kml-file-input');
@@ -576,6 +1266,148 @@
       var f = e.target.files && e.target.files[0];
       if (f) handleKmlFile(f);
     });
+
+    // 수동 마커 추가 모드 토글
+    if (manualMarkerBtn && MWMAP.map && google && google.maps) {
+      manualMarkerBtn.addEventListener('click', function () {
+        var map = MWMAP.map;
+        // 모드가 이미 켜져 있으면 → 저장 플로우 진입 또는 단순 종료
+        if (_isManualMarkerMode) {
+          _isManualMarkerMode = false;
+          if (_mapClickManualListener && google.maps.event) {
+            google.maps.event.removeListener(_mapClickManualListener);
+            _mapClickManualListener = null;
+          }
+          manualMarkerBtn.textContent = '마커추가';
+          manualMarkerBtn.style.background = '';
+          manualMarkerBtn.style.color = '';
+
+          if (_manualMarkersTemp.length > 0) {
+            // 이미 추가된 마커가 있다면 현장 선택 모달로 저장
+            openSiteSelectModalForManualMarkers(_manualMarkersTemp.slice());
+          }
+          return;
+        }
+
+        // 모드가 꺼져 있으면 켜기
+        _isManualMarkerMode = true;
+        manualMarkerBtn.textContent = '마커추가 중...';
+        manualMarkerBtn.style.background = 'linear-gradient(135deg, #ef4444, #b91c1c)';
+        manualMarkerBtn.style.color = '#ffffff';
+
+        // 이전 임시 마커 좌표만 초기화 (이미 저장된 마커는 그대로 유지)
+        _manualMarkersTemp = [];
+
+        if (_mapClickManualListener && google.maps.event) {
+          google.maps.event.removeListener(_mapClickManualListener);
+          _mapClickManualListener = null;
+        }
+        _mapClickManualListener = google.maps.event.addListener(map, 'click', function (event) {
+          if (!_isManualMarkerMode) return;
+          if (!event || !event.latLng) return;
+          var latLng = event.latLng;
+          var lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat;
+          var lng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
+          if (typeof lat !== 'number' || typeof lng !== 'number') return;
+
+          // 임시 수동 마커 저장
+          _manualMarkersTemp.push({
+            lat: lat,
+            lng: lng,
+            createdAt: new Date().toISOString()
+          });
+
+          // 지도에 빨간 원으로 표시 (텍스트 KML 마커와 동일 크기)
+          var m = new google.maps.Marker({
+            map: map,
+            position: { lat: lat, lng: lng },
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 4,
+              fillColor: '#ef4444',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 1
+            }
+          });
+          _renderedManualMarkers.push(m);
+        });
+      });
+    }
+
+    // 경로추가 버튼은 추후 확장용으로 일단 안내만 표시
+    if (manualRouteBtn) {
+      manualRouteBtn.addEventListener('click', function () {
+        var map = MWMAP.map;
+        if (!map || !google || !google.maps) return;
+
+        // 이미 경로 모드인 상태에서 다시 누르면 → 종료 및 저장 플로우
+        if (_isManualRouteMode) {
+          _isManualRouteMode = false;
+          if (_mapClickManualRouteListener && google.maps.event) {
+            google.maps.event.removeListener(_mapClickManualRouteListener);
+            _mapClickManualRouteListener = null;
+          }
+          manualRouteBtn.textContent = '경로추가';
+          manualRouteBtn.style.background = '';
+          manualRouteBtn.style.color = '';
+
+          if (_manualRoutePointsTemp.length >= 2) {
+            // path는 {lat,lng} 배열로 저장
+            var pathToSave = _manualRoutePointsTemp.slice();
+            openSiteSelectModalForManualRoute(pathToSave);
+          } else {
+            if (_manualRouteTempLine && _manualRouteTempLine.setMap) {
+              _manualRouteTempLine.setMap(null);
+            }
+            _manualRouteTempLine = null;
+            _manualRoutePointsTemp = [];
+          }
+          return;
+        }
+
+        // 모드가 꺼져 있으면 켜기
+        _isManualRouteMode = true;
+        manualRouteBtn.textContent = '경로추가 중...';
+        manualRouteBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+        manualRouteBtn.style.color = '#ffffff';
+
+        _manualRoutePointsTemp = [];
+        if (_manualRouteTempLine && _manualRouteTempLine.setMap) {
+          _manualRouteTempLine.setMap(null);
+        }
+        _manualRouteTempLine = null;
+
+        if (_mapClickManualRouteListener && google.maps.event) {
+          google.maps.event.removeListener(_mapClickManualRouteListener);
+          _mapClickManualRouteListener = null;
+        }
+        _mapClickManualRouteListener = google.maps.event.addListener(map, 'click', function (event) {
+          if (!_isManualRouteMode) return;
+          if (!event || !event.latLng) return;
+          var latLng = event.latLng;
+          var lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat;
+          var lng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
+          if (typeof lat !== 'number' || typeof lng !== 'number') return;
+
+          _manualRoutePointsTemp.push({ lat: lat, lng: lng });
+
+          // 임시 라인 갱신
+          if (_manualRouteTempLine && _manualRouteTempLine.setMap) {
+            _manualRouteTempLine.setMap(null);
+          }
+          if (_manualRoutePointsTemp.length >= 2) {
+            _manualRouteTempLine = new google.maps.Polyline({
+              map: map,
+              path: _manualRoutePointsTemp.map(function (p) { return { lat: p.lat, lng: p.lng }; }),
+              strokeColor: '#f97316',
+              strokeOpacity: 0.8,
+              strokeWeight: 3
+            });
+          }
+        });
+      });
+    }
 
     var siteOverlay = document.getElementById('kml-site-overlay');
     var siteDialog = document.getElementById('kml-site-dialog');
