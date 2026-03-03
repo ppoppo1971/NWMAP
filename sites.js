@@ -19,12 +19,16 @@
   function showAddSiteModal() {
     var overlay = document.getElementById('add-site-overlay');
     var input = document.getElementById('add-site-title');
+    var memoInput = document.getElementById('add-site-memo');
     if (overlay) overlay.classList.add('show');
     if (input) {
       input.value = '';
       setTimeout(function () {
         input.focus();
       }, 100);
+    }
+    if (memoInput) {
+      memoInput.value = '';
     }
   }
 
@@ -139,10 +143,12 @@
 
   function addNewSite() {
     var input = document.getElementById('add-site-title');
+    var memoInput = document.getElementById('add-site-memo');
     var title = input ? input.value.trim() : '';
     if (!title) {
       return;
     }
+    var memo = memoInput ? memoInput.value.trim() : '';
     var ref = getDocRef();
     if (!ref) {
       alert('Firebase 연결이 되지 않았습니다. 잠시 후 다시 시도해 주세요.');
@@ -151,6 +157,7 @@
     var newItem = {
       id: 'site_' + Date.now(),
       title: title,
+      memo: memo,
       timestamp: new Date().toISOString(),
       type: 'custom_schedule'
     };
@@ -183,10 +190,31 @@
   function openEditSiteModal(siteId, title) {
     var overlay = document.getElementById('edit-site-overlay');
     var input = document.getElementById('edit-site-title');
+    var memoInput = document.getElementById('edit-site-memo');
     if (!overlay || !input) return;
     _editingSiteId = siteId || null;
     input.value = title || '';
     overlay.classList.add('show');
+    if (memoInput) {
+      memoInput.value = '';
+    }
+    // Firebase에서 해당 현장의 메모를 읽어와 입력란에 채움
+    var ref = getDocRef();
+    if (ref && _editingSiteId) {
+      window.firestore.getDoc(ref).then(function (snap) {
+        if (!snap.exists()) return;
+        var data = snap.data() || {};
+        var existing = data.customSchedules || [];
+        var found = existing.filter(function (item) {
+          return item && item.id === _editingSiteId;
+        })[0];
+        if (found && memoInput) {
+          memoInput.value = found.memo || '';
+        }
+      }).catch(function () {
+        // 메모 로드는 실패해도 전체 흐름에는 영향 없음
+      });
+    }
     setTimeout(function () {
       input.focus();
       input.select();
@@ -201,8 +229,10 @@
 
   function updateEditingSiteTitle() {
     var input = document.getElementById('edit-site-title');
+    var memoInput = document.getElementById('edit-site-memo');
     var newTitle = input ? input.value.trim() : '';
     if (!_editingSiteId || !newTitle) return;
+    var newMemo = memoInput ? memoInput.value.trim() : '';
     var ref = getDocRef();
     if (!ref) {
       alert('Firebase 연결이 되지 않았습니다. 잠시 후 다시 시도해 주세요.');
@@ -222,6 +252,7 @@
             }
           }
           copy.title = newTitle;
+          copy.memo = newMemo;
           return copy;
         }
         return item;
@@ -329,6 +360,7 @@
     var editSaveBtn = document.getElementById('edit-site-save');
     var editDeleteBtn = document.getElementById('edit-site-delete');
     var editTitleInput = document.getElementById('edit-site-title');
+    var editFocusBtn = document.getElementById('edit-site-focus');
 
     if (editOverlay) {
       editOverlay.addEventListener('click', function (e) {
@@ -342,6 +374,18 @@
     }
     if (editSaveBtn) editSaveBtn.addEventListener('click', updateEditingSiteTitle);
     if (editDeleteBtn) editDeleteBtn.addEventListener('click', deleteEditingSite);
+    if (editFocusBtn) {
+      editFocusBtn.addEventListener('click', function () {
+        if (!_editingSiteId) return;
+        if (window.MWMAP && window.MWMAP.kmlImport && typeof window.MWMAP.kmlImport.focusSite === 'function') {
+          window.MWMAP.kmlImport.focusSite(_editingSiteId);
+        }
+        closeEditSiteModal();
+        if (window.MWMAP && window.MWMAP.uiPanel && typeof window.MWMAP.uiPanel.closePanel === 'function') {
+          window.MWMAP.uiPanel.closePanel();
+        }
+      });
+    }
     if (editTitleInput) {
       editTitleInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {

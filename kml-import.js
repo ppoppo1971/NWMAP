@@ -13,6 +13,8 @@
   var _renderedPolygons = [];
   var _currentInfoWindow = null;
   var _mapClickCloseListener = null;
+  var _latestData = null;
+  var _selectedSiteId = null;
 
   function ensureDeps() {
     if (typeof toGeoJSON === 'undefined') {
@@ -217,20 +219,84 @@
     return shapes;
   }
 
-  // Firestore에서 읽어온 kmlBySite 데이터를 기반으로 모든 사이트의 KML 요약 객체를 지도에 그림
+  // Firestore에서 읽어온 kmlBySite 데이터를 기반으로
+  // 1) 모든 현장에 대한 대표 원(클러스터) 표시
+  // 2) 선택된 현장(_selectedSiteId)에 대해서만 세부 도형(KML shapes) 렌더링
   function renderFromFirestoreData(data) {
+    _latestData = data || null;
     clearRenderedFromFirestore();
     if (!data || !data.kmlBySite || typeof data.kmlBySite !== 'object') return;
     var map = MWMAP.map;
     if (!map || !google || !google.maps) return;
 
-    for (var siteId in data.kmlBySite) {
-      if (!Object.prototype.hasOwnProperty.call(data.kmlBySite, siteId)) continue;
+    // 1) 모든 현장에 대해 대표 원(클러스터)만 먼저 그림
+    Object.keys(data.kmlBySite).forEach(function (siteId) {
       var payload = data.kmlBySite[siteId];
-      if (!payload || !payload.shapes) continue;
+      if (!payload || !payload.shapes) return;
       var shapes = payload.shapes;
 
-      // 공통 InfoWindow 닫기/맵 클릭 리스너 설정 함수
+      var bounds = new google.maps.LatLngBounds();
+      var hasAny = false;
+
+      (shapes.points || []).forEach(function (pt) {
+        if (typeof pt.lat !== 'number' || typeof pt.lng !== 'number') return;
+        bounds.extend(new google.maps.LatLng(pt.lat, pt.lng));
+        hasAny = true;
+      });
+      (shapes.lines || []).forEach(function (ln) {
+        if (!Array.isArray(ln.path)) return;
+        ln.path.forEach(function (p) {
+          if (typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+          bounds.extend(new google.maps.LatLng(p.lat, p.lng));
+          hasAny = true;
+        });
+      });
+      (shapes.polygons || []).forEach(function (pg) {
+        if (!Array.isArray(pg.path)) return;
+        pg.path.forEach(function (p) {
+          if (typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+          bounds.extend(new google.maps.LatLng(p.lat, p.lng));
+          hasAny = true;
+        });
+      });
+
+      if (!hasAny) return;
+      var center = bounds.getCenter();
+
+      var isSelected = _selectedSiteId && _selectedSiteId === siteId;
+      var marker = new google.maps.Marker({
+        // 선택된 현장의 경우 대표 원은 숨김
+        map: isSelected ? null : map,
+        position: center,
+        title: (payload.fileName || '현장') + ' (대표)',
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: '#10b981',
+          fillOpacity: 0.9,
+          strokeColor: '#ffffff',
+          strokeWeight: 2
+        }
+      });
+
+      marker.addListener('click', function () {
+        _selectedSiteId = siteId;
+        // 선택된 현장 영역으로 확대
+        map.fitBounds(bounds);
+        // 선택 변경 시 세부 도형/대표 원 상태를 다시 렌더링
+        renderFromFirestoreData(_latestData || {});
+      });
+
+      _renderedMarkers.push(marker);
+    });
+
+    // 2) 선택된 현장이 있으면, 그 현장의 세부 도형만 렌더링
+    if (_selectedSiteId && data.kmlBySite[_selectedSiteId]) {
+      var payloadSel = data.kmlBySite[_selectedSiteId];
+      if (!payloadSel || !payloadSel.shapes) return;
+      var shapesSel = payloadSel.shapes;
+
+      // 공통 InfoWindow 닫기/맵 클릭 리스너 설정 함수 (텍스트 전용)
       function openInfoWindowAt(latLng, html) {
         if (!latLng) return;
         if (_currentInfoWindow) {
@@ -264,7 +330,7 @@
         });
       }
 
-      (shapes.points || []).forEach(function (pt) {
+      (shapesSel.points || []).forEach(function (pt) {
         if (typeof pt.lat !== 'number' || typeof pt.lng !== 'number') return;
         var pos = { lat: pt.lat, lng: pt.lng };
         var isText = pt.type === 'text';
@@ -297,7 +363,7 @@
         _renderedMarkers.push(marker);
       });
 
-      (shapes.lines || []).forEach(function (ln) {
+      (shapesSel.lines || []).forEach(function (ln) {
         if (!Array.isArray(ln.path) || ln.path.length < 2) return;
         var path = ln.path.map(function (p) { return { lat: p.lat, lng: p.lng }; });
         var line = new google.maps.Polyline({
@@ -311,7 +377,7 @@
         _renderedLines.push(line);
       });
 
-      (shapes.polygons || []).forEach(function (pg) {
+      (shapesSel.polygons || []).forEach(function (pg) {
         if (!Array.isArray(pg.path) || pg.path.length < 3) return;
         var polyPath = pg.path.map(function (p) { return { lat: p.lat, lng: p.lng }; });
         var poly = new google.maps.Polygon({
@@ -374,6 +440,49 @@
   function closeSiteSelectModal() {
     var overlay = document.getElementById('kml-site-overlay');
     if (overlay) overlay.classList.remove('show');
+  }
+
+  function focusSite(siteId) {
+    if (!siteId || !_latestData || !_latestData.kmlBySite) return;
+    var map = MWMAP && MWMAP.map;
+    var sitePayload = _latestData.kmlBySite[siteId];
+    if (!map || !sitePayload || !sitePayload.shapes) {
+      _selectedSiteId = siteId;
+      renderFromFirestoreData(_latestData);
+      return;
+    }
+
+    var shapesSel = sitePayload.shapes;
+    var bounds = new google.maps.LatLngBounds();
+    var hasPoint = false;
+
+    (shapesSel.points || []).forEach(function (pt) {
+      if (!pt || typeof pt.lat !== 'number' || typeof pt.lng !== 'number') return;
+      hasPoint = true;
+      bounds.extend(new google.maps.LatLng(pt.lat, pt.lng));
+    });
+    (shapesSel.lines || []).forEach(function (ln) {
+      if (!Array.isArray(ln.path)) return;
+      ln.path.forEach(function (p) {
+        if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+        hasPoint = true;
+        bounds.extend(new google.maps.LatLng(p.lat, p.lng));
+      });
+    });
+    (shapesSel.polygons || []).forEach(function (pg) {
+      if (!Array.isArray(pg.path)) return;
+      pg.path.forEach(function (p) {
+        if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+        hasPoint = true;
+        bounds.extend(new google.maps.LatLng(p.lat, p.lng));
+      });
+    });
+
+    _selectedSiteId = siteId;
+    if (hasPoint) {
+      map.fitBounds(bounds);
+    }
+    renderFromFirestoreData(_latestData);
   }
 
   function saveKmlForSite(siteId, payload) {
@@ -484,6 +593,6 @@
     }
   }
 
-  MWMAP.kmlImport = { bind: bind, renderFromFirestoreData: renderFromFirestoreData };
+  MWMAP.kmlImport = { bind: bind, renderFromFirestoreData: renderFromFirestoreData, focusSite: focusSite };
 })(window.MWMAP);
 

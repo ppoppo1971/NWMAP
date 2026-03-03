@@ -427,6 +427,19 @@ a[href^="https://maps.google.com/maps"],
   color: #1a1a1a;
   font-size: 0.95rem;
 }
+#add-site-memo {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #1a1a1a;
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 48px;
+}
 #add-site-submit {
   width: 100%;
   padding: 10px 12px;
@@ -557,6 +570,20 @@ a[href^="https://maps.google.com/maps"],
   font-size: 1.1rem;
   color: #1f2937;
 }
+#edit-site-focus {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: none;
+  border-radius: 8px;
+  background: #10b981;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
 #edit-site-title {
   width: 100%;
   box-sizing: border-box;
@@ -567,6 +594,19 @@ a[href^="https://maps.google.com/maps"],
   background: #f9fafb;
   color: #1a1a1a;
   font-size: 0.95rem;
+}
+#edit-site-memo {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #1a1a1a;
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 48px;
 }
 .edit-site-actions {
   display: flex;
@@ -700,7 +740,7 @@ a[href^="https://maps.google.com/maps"],
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">0414</div>
+  <div id="version-label" aria-hidden="true">031439</div>
   <span class="sync-badge hide" id="sync-badge" aria-live="polite">동기화됨</span>
   <div id="app-root">
     <div id="map"></div>
@@ -754,6 +794,7 @@ a[href^="https://maps.google.com/maps"],
     <div id="add-site-dialog" role="dialog" aria-labelledby="add-site-dialog-title">
       <h3 id="add-site-dialog-title">새 현장 추가</h3>
       <input type="text" id="add-site-title" placeholder="현장 이름" autocomplete="off" aria-label="현장 이름">
+      <textarea id="add-site-memo" placeholder="메모" aria-label="메모"></textarea>
       <button type="button" id="add-site-submit">추가</button>
     </div>
   </div>
@@ -762,7 +803,9 @@ a[href^="https://maps.google.com/maps"],
   <div id="edit-site-overlay" aria-hidden="true">
     <div id="edit-site-dialog" role="dialog" aria-labelledby="edit-site-dialog-title">
       <h3 id="edit-site-dialog-title">현장 편집</h3>
+      <button type="button" id="edit-site-focus">현장으로 이동</button>
       <input type="text" id="edit-site-title" placeholder="현장 이름" autocomplete="off" aria-label="현장 이름">
+      <textarea id="edit-site-memo" placeholder="메모" aria-label="메모"></textarea>
       <div class="edit-site-actions">
         <button type="button" id="edit-site-save">수정</button>
         <button type="button" id="edit-site-delete">삭제</button>
