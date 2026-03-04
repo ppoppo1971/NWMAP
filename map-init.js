@@ -107,7 +107,7 @@
       }
     });
 
-    // 지도 mousedown → 롱프레스 타이머 시작
+    // 지도 mousedown → 롱프레스 타이머 시작 (주로 데스크톱용)
     google.maps.event.addListener(map, 'mousedown', function (event) {
       longPressTriggered = false;
       longPressStartLatLng = event && event.latLng ? event.latLng : null;
@@ -127,6 +127,17 @@
           }));
         }
       }, LONG_PRESS_DURATION);
+    });
+
+    // 데스크톱: 마우스 오른쪽 클릭으로도 롱프레스 기능 실행
+    google.maps.event.addListener(map, 'rightclick', function (event) {
+      longPressTriggered = true;
+      var latLng = event && event.latLng ? event.latLng : null;
+      if (latLng) {
+        window.dispatchEvent(new CustomEvent('mwmappMapLongPress', {
+          detail: { latLng: latLng }
+        }));
+      }
     });
 
     // 지도 mousemove → 일정 이상 이동 시 롱프레스 취소

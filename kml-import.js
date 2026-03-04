@@ -302,10 +302,7 @@
       var addr = addressText || '주소를 찾을 수 없습니다.';
       var html =
         '<div style="padding:12px;max-width:260px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
-        '<div style="font-size:13px;color:#111827;margin-bottom:4px;">' + addr + '</div>' +
-        '<div style="font-size:11px;color:#6b7280;margin-bottom:8px;">' +
-        '위도: ' + lat.toFixed(6) + '<br>경도: ' + lng.toFixed(6) +
-        '</div>' +
+        '<div style="font-size:13px;color:#111827;margin-bottom:8px;">' + addr + '</div>' +
         '<button id="longpress-create-marker-' + idSuffix + '" ' +
         'style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;font-size:13px;font-weight:500;cursor:pointer;">마커 생성</button>' +
         '</div>';
