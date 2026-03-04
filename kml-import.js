@@ -24,6 +24,7 @@
   var _renderedManualRoutes = [];
   var _mapClickManualRouteListener = null;
   var _manualRouteTempLine = null;
+  var _longPressTempMarker = null;
 
   function ensureDeps() {
     if (typeof toGeoJSON === 'undefined') {
@@ -260,6 +261,117 @@
       _manualRouteTempLine.setMap(null);
     }
     _manualRouteTempLine = null;
+    if (_longPressTempMarker && _longPressTempMarker.setMap) {
+      _longPressTempMarker.setMap(null);
+    }
+    _longPressTempMarker = null;
+  }
+
+  function handleMapLongPress(latLng) {
+    var map = MWMAP.map;
+    var geocoder = MWMAP.geocoder;
+    if (!map) return;
+    if (_isManualMarkerMode || _isManualRouteMode) return;
+
+    if (_currentInfoWindow) {
+      _currentInfoWindow.close();
+      _currentInfoWindow = null;
+    }
+    if (_longPressTempMarker && _longPressTempMarker.setMap) {
+      _longPressTempMarker.setMap(null);
+    }
+
+    _longPressTempMarker = new google.maps.Marker({
+      position: latLng,
+      map: map,
+      zIndex: 1000,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 5,
+        fillColor: '#3b82f6',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2
+      }
+    });
+
+    function openInfo(addressText) {
+      var lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat;
+      var lng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
+      var idSuffix = String(Date.now());
+      var addr = addressText || '주소를 찾을 수 없습니다.';
+      var html =
+        '<div style="padding:12px;max-width:260px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
+        '<div style="font-size:13px;color:#111827;margin-bottom:4px;">' + addr + '</div>' +
+        '<div style="font-size:11px;color:#6b7280;margin-bottom:8px;">' +
+        '위도: ' + lat.toFixed(6) + '<br>경도: ' + lng.toFixed(6) +
+        '</div>' +
+        '<button id="longpress-create-marker-' + idSuffix + '" ' +
+        'style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;font-size:13px;font-weight:500;cursor:pointer;">마커 생성</button>' +
+        '</div>';
+
+      if (_currentInfoWindow) {
+        _currentInfoWindow.close();
+      }
+      _currentInfoWindow = new google.maps.InfoWindow({
+        content: html,
+        position: latLng,
+        maxWidth: 280
+      });
+      _currentInfoWindow.open(map, _longPressTempMarker);
+
+      if (_mapClickCloseListener && google && google.maps && google.maps.event) {
+        google.maps.event.removeListener(_mapClickCloseListener);
+        _mapClickCloseListener = null;
+      }
+      _mapClickCloseListener = google.maps.event.addListener(map, 'click', function () {
+        if (_currentInfoWindow) {
+          _currentInfoWindow.close();
+          _currentInfoWindow = null;
+        }
+        if (_longPressTempMarker) {
+          _longPressTempMarker.setMap(null);
+          _longPressTempMarker = null;
+        }
+      });
+
+      if (google && google.maps && google.maps.event) {
+        google.maps.event.addListenerOnce(_currentInfoWindow, 'domready', function () {
+          var btn = document.getElementById('longpress-create-marker-' + idSuffix);
+          if (!btn) return;
+          btn.addEventListener('click', function () {
+            if (_currentInfoWindow) {
+              _currentInfoWindow.close();
+              _currentInfoWindow = null;
+            }
+            if (_longPressTempMarker) {
+              _longPressTempMarker.setMap(null);
+              _longPressTempMarker = null;
+            }
+            var markers = [{
+              lat: lat,
+              lng: lng,
+              title: '',
+              description: '',
+              createdAt: new Date().toISOString()
+            }];
+            openSiteSelectModalForManualMarkers(markers);
+          });
+        });
+      }
+    }
+
+    if (geocoder && geocoder.geocode) {
+      geocoder.geocode({ location: latLng }, function (results, status) {
+        if (status === 'OK' && results && results.length) {
+          openInfo(results[0].formatted_address || '');
+        } else {
+          openInfo('');
+        }
+      });
+    } else {
+      openInfo('');
+    }
   }
 
   function buildShapesFromGeoJson(geoJson) {
@@ -1244,7 +1356,6 @@
 
   function bind() {
     var importBtn = document.getElementById('kml-import-btn');
-    var manualMarkerBtn = document.getElementById('add-marker-btn');
     var manualRouteBtn = document.getElementById('add-route-btn');
     if (!importBtn) return;
 
@@ -1267,75 +1378,6 @@
       if (f) handleKmlFile(f);
     });
 
-    // 수동 마커 추가 모드 토글
-    if (manualMarkerBtn && MWMAP.map && google && google.maps) {
-      manualMarkerBtn.addEventListener('click', function () {
-        var map = MWMAP.map;
-        // 모드가 이미 켜져 있으면 → 저장 플로우 진입 또는 단순 종료
-        if (_isManualMarkerMode) {
-          _isManualMarkerMode = false;
-          if (_mapClickManualListener && google.maps.event) {
-            google.maps.event.removeListener(_mapClickManualListener);
-            _mapClickManualListener = null;
-          }
-          manualMarkerBtn.textContent = '마커추가';
-          manualMarkerBtn.style.background = '';
-          manualMarkerBtn.style.color = '';
-
-          if (_manualMarkersTemp.length > 0) {
-            // 이미 추가된 마커가 있다면 현장 선택 모달로 저장
-            openSiteSelectModalForManualMarkers(_manualMarkersTemp.slice());
-          }
-          return;
-        }
-
-        // 모드가 꺼져 있으면 켜기
-        _isManualMarkerMode = true;
-        manualMarkerBtn.textContent = '마커추가 중...';
-        manualMarkerBtn.style.background = 'linear-gradient(135deg, #ef4444, #b91c1c)';
-        manualMarkerBtn.style.color = '#ffffff';
-
-        // 이전 임시 마커 좌표만 초기화 (이미 저장된 마커는 그대로 유지)
-        _manualMarkersTemp = [];
-
-        if (_mapClickManualListener && google.maps.event) {
-          google.maps.event.removeListener(_mapClickManualListener);
-          _mapClickManualListener = null;
-        }
-        _mapClickManualListener = google.maps.event.addListener(map, 'click', function (event) {
-          if (!_isManualMarkerMode) return;
-          if (!event || !event.latLng) return;
-          var latLng = event.latLng;
-          var lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat;
-          var lng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
-          if (typeof lat !== 'number' || typeof lng !== 'number') return;
-
-          // 임시 수동 마커 저장
-          _manualMarkersTemp.push({
-            lat: lat,
-            lng: lng,
-            createdAt: new Date().toISOString()
-          });
-
-          // 지도에 빨간 원으로 표시 (텍스트 KML 마커와 동일 크기)
-          var m = new google.maps.Marker({
-            map: map,
-            position: { lat: lat, lng: lng },
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 4,
-              fillColor: '#ef4444',
-              fillOpacity: 1,
-              strokeColor: '#ffffff',
-              strokeWeight: 1
-            }
-          });
-          _renderedManualMarkers.push(m);
-        });
-      });
-    }
-
-    // 경로추가 버튼은 추후 확장용으로 일단 안내만 표시
     if (manualRouteBtn) {
       manualRouteBtn.addEventListener('click', function () {
         var map = MWMAP.map;
@@ -1423,6 +1465,12 @@
         e.stopPropagation();
       });
     }
+
+    // 지도 롱프레스 이벤트 수신 → 수동 마커 생성 플로우 진입
+    window.addEventListener('mwmappMapLongPress', function (e) {
+      if (!e || !e.detail || !e.detail.latLng) return;
+      handleMapLongPress(e.detail.latLng);
+    });
   }
 
   MWMAP.kmlImport = { bind: bind, renderFromFirestoreData: renderFromFirestoreData, focusSite: focusSite };

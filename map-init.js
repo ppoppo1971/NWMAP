@@ -79,14 +79,85 @@
     MWMAP.map = map;
     MWMAP.geocoder = geocoder;
 
-    // 지도 선택 시 양쪽 사이드 패널 자동 닫기
+    // 지도 롱프레스 감지용 변수
+    var longPressTimer = null;
+    var longPressStartLatLng = null;
+    var longPressTriggered = false;
+    var LONG_PRESS_DURATION = 600; // ms
+    var longPressStartPixel = null;
+
+    function clearLongPressTimer() {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    }
+
+    // 지도 선택 시 양쪽 사이드 패널 자동 닫기 (롱프레스 클릭은 무시)
     google.maps.event.addListener(map, 'click', function () {
+      if (longPressTriggered) {
+        longPressTriggered = false;
+        return;
+      }
       if (MWMAP.uiPanel && typeof MWMAP.uiPanel.closePanel === 'function') {
         MWMAP.uiPanel.closePanel();
       }
       if (MWMAP.uiMapType && typeof MWMAP.uiMapType.closePanel === 'function') {
         MWMAP.uiMapType.closePanel();
       }
+    });
+
+    // 지도 mousedown → 롱프레스 타이머 시작
+    google.maps.event.addListener(map, 'mousedown', function (event) {
+      longPressTriggered = false;
+      longPressStartLatLng = event && event.latLng ? event.latLng : null;
+      var projection = map.getProjection();
+      if (projection && longPressStartLatLng) {
+        longPressStartPixel = projection.fromLatLngToPoint(longPressStartLatLng);
+      } else {
+        longPressStartPixel = null;
+      }
+      clearLongPressTimer();
+      longPressTimer = setTimeout(function () {
+        longPressTimer = null;
+        longPressTriggered = true;
+        if (longPressStartLatLng) {
+          window.dispatchEvent(new CustomEvent('mwmappMapLongPress', {
+            detail: { latLng: longPressStartLatLng }
+          }));
+        }
+      }, LONG_PRESS_DURATION);
+    });
+
+    // 지도 mousemove → 일정 이상 이동 시 롱프레스 취소
+    google.maps.event.addListener(map, 'mousemove', function (event) {
+      if (!longPressTimer || !longPressStartPixel || !event || !event.latLng) return;
+      var projection = map.getProjection();
+      if (!projection) return;
+      var currentPixel = projection.fromLatLngToPoint(event.latLng);
+      var dx = Math.abs(currentPixel.x - longPressStartPixel.x);
+      var dy = Math.abs(currentPixel.y - longPressStartPixel.y);
+      if (dx > 0.0005 || dy > 0.0005) {
+        clearLongPressTimer();
+      }
+    });
+
+    // mouseup/dragstart/zoom_changed → 롱프레스 취소
+    google.maps.event.addListener(map, 'mouseup', function () {
+      clearLongPressTimer();
+    });
+    google.maps.event.addListener(map, 'dragstart', function () {
+      clearLongPressTimer();
+    });
+    var prevZoom = map.getZoom();
+    google.maps.event.addListener(map, 'zoom_changed', function () {
+      var currentZoom = map.getZoom();
+      if (currentZoom !== prevZoom) {
+        clearLongPressTimer();
+        longPressStartLatLng = null;
+        longPressStartPixel = null;
+      }
+      prevZoom = currentZoom;
     });
 
     return true;
