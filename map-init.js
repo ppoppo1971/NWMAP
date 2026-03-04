@@ -97,6 +97,7 @@
     google.maps.event.addListener(map, 'click', function () {
       if (longPressTriggered) {
         longPressTriggered = false;
+        MWMAP._skipMapClickCloseOnce = true;
         return;
       }
       if (MWMAP.uiPanel && typeof MWMAP.uiPanel.closePanel === 'function') {

@@ -322,6 +322,10 @@
         _mapClickCloseListener = null;
       }
       _mapClickCloseListener = google.maps.event.addListener(map, 'click', function () {
+        if (MWMAP._skipMapClickCloseOnce) {
+          MWMAP._skipMapClickCloseOnce = false;
+          return;
+        }
         if (_currentInfoWindow) {
           _currentInfoWindow.close();
           _currentInfoWindow = null;
