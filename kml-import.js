@@ -464,11 +464,12 @@
   function renderFromFirestoreData(data) {
     _latestData = data || null;
     clearRenderedFromFirestore();
-    if (!data || !data.kmlBySite || typeof data.kmlBySite !== 'object') return;
+    if (!data) return;
     var map = MWMAP.map;
     if (!map || !google || !google.maps) return;
 
-    // 1) 모든 현장에 대해 대표 원(클러스터)만 먼저 그림
+    // 1) 모든 현장에 대해 대표 원(클러스터)만 먼저 그림 (kmlBySite에 있는 현장만)
+    if (data.kmlBySite && typeof data.kmlBySite === 'object') {
     Object.keys(data.kmlBySite).forEach(function (siteId) {
       var payload = data.kmlBySite[siteId];
       if (!payload || !payload.shapes) return;
@@ -528,13 +529,16 @@
 
       _renderedMarkers.push(marker);
     });
+    }
 
-    // 2) 선택된 현장이 있으면, 그 현장의 세부 도형만 렌더링
-    if (_selectedSiteId && data.kmlBySite[_selectedSiteId]) {
-      var payloadSel = data.kmlBySite[_selectedSiteId];
-      if (!payloadSel || !payloadSel.shapes) return;
-      var shapesSel = payloadSel.shapes;
+    // 2) 선택된 현장이 있으면, 그 현장의 세부 도형(KML) + 수동 마커/경로 렌더링 (KML 없어도 수동 데이터만 있으면 진입)
+    var hasKml = data.kmlBySite && data.kmlBySite[_selectedSiteId] && data.kmlBySite[_selectedSiteId].shapes;
+    var hasManualMarkers = data.manualMarkersBySite && data.manualMarkersBySite[_selectedSiteId] &&
+      Array.isArray(data.manualMarkersBySite[_selectedSiteId].markers) && data.manualMarkersBySite[_selectedSiteId].markers.length > 0;
+    var hasManualRoutes = data.manualRoutesBySite && data.manualRoutesBySite[_selectedSiteId] &&
+      Array.isArray(data.manualRoutesBySite[_selectedSiteId].routes) && data.manualRoutesBySite[_selectedSiteId].routes.length > 0;
 
+    if (_selectedSiteId && (hasKml || hasManualMarkers || hasManualRoutes)) {
       // 공통 InfoWindow 닫기/맵 클릭 리스너 설정 함수
       function openInfoWindowAt(latLng, html, onDomReady) {
         if (!latLng) return;
@@ -579,6 +583,9 @@
         });
       }
 
+      if (hasKml) {
+        var payloadSel = data.kmlBySite[_selectedSiteId];
+        var shapesSel = payloadSel && payloadSel.shapes ? payloadSel.shapes : { points: [], lines: [], polygons: [] };
       (shapesSel.points || []).forEach(function (pt) {
         if (typeof pt.lat !== 'number' || typeof pt.lng !== 'number') return;
         var pos = { lat: pt.lat, lng: pt.lng };
@@ -641,6 +648,7 @@
         // 블록(폴리곤)은 비활성: InfoWindow 리스너를 붙이지 않음
         _renderedPolygons.push(poly);
       });
+      }
 
       // 3) 선택된 현장에 저장된 수동 마커(빨간 원) 렌더링
       var manualMarkersBySite = (data && data.manualMarkersBySite && typeof data.manualMarkersBySite === 'object')
@@ -1045,43 +1053,61 @@
   }
 
   function focusSite(siteId) {
-    if (!siteId || !_latestData || !_latestData.kmlBySite) return;
+    if (!siteId || !_latestData) return;
     var map = MWMAP && MWMAP.map;
-    var sitePayload = _latestData.kmlBySite[siteId];
-    if (!map || !sitePayload || !sitePayload.shapes) {
-      _selectedSiteId = siteId;
-      renderFromFirestoreData(_latestData);
-      return;
+    if (!map) return;
+
+    var bounds = new google.maps.LatLngBounds();
+    var hasAny = false;
+
+    var sitePayload = _latestData.kmlBySite && _latestData.kmlBySite[siteId];
+    var shapesSel = sitePayload && sitePayload.shapes ? sitePayload.shapes : null;
+    if (shapesSel) {
+      (shapesSel.points || []).forEach(function (pt) {
+        if (!pt || typeof pt.lat !== 'number' || typeof pt.lng !== 'number') return;
+        hasAny = true;
+        bounds.extend(new google.maps.LatLng(pt.lat, pt.lng));
+      });
+      (shapesSel.lines || []).forEach(function (ln) {
+        if (!Array.isArray(ln.path)) return;
+        ln.path.forEach(function (p) {
+          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+          hasAny = true;
+          bounds.extend(new google.maps.LatLng(p.lat, p.lng));
+        });
+      });
+      (shapesSel.polygons || []).forEach(function (pg) {
+        if (!Array.isArray(pg.path)) return;
+        pg.path.forEach(function (p) {
+          if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+          hasAny = true;
+          bounds.extend(new google.maps.LatLng(p.lat, p.lng));
+        });
+      });
     }
 
-    var shapesSel = sitePayload.shapes;
-    var bounds = new google.maps.LatLngBounds();
-    var hasPoint = false;
-
-    (shapesSel.points || []).forEach(function (pt) {
-      if (!pt || typeof pt.lat !== 'number' || typeof pt.lng !== 'number') return;
-      hasPoint = true;
-      bounds.extend(new google.maps.LatLng(pt.lat, pt.lng));
-    });
-    (shapesSel.lines || []).forEach(function (ln) {
-      if (!Array.isArray(ln.path)) return;
-      ln.path.forEach(function (p) {
-        if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
-        hasPoint = true;
-        bounds.extend(new google.maps.LatLng(p.lat, p.lng));
+    if (!hasAny && _latestData.manualMarkersBySite && _latestData.manualMarkersBySite[siteId] && Array.isArray(_latestData.manualMarkersBySite[siteId].markers)) {
+      _latestData.manualMarkersBySite[siteId].markers.forEach(function (mm) {
+        if (mm && typeof mm.lat === 'number' && typeof mm.lng === 'number') {
+          hasAny = true;
+          bounds.extend(new google.maps.LatLng(mm.lat, mm.lng));
+        }
       });
-    });
-    (shapesSel.polygons || []).forEach(function (pg) {
-      if (!Array.isArray(pg.path)) return;
-      pg.path.forEach(function (p) {
-        if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
-        hasPoint = true;
-        bounds.extend(new google.maps.LatLng(p.lat, p.lng));
+    }
+    if (!hasAny && _latestData.manualRoutesBySite && _latestData.manualRoutesBySite[siteId] && Array.isArray(_latestData.manualRoutesBySite[siteId].routes)) {
+      _latestData.manualRoutesBySite[siteId].routes.forEach(function (rt) {
+        if (!rt || !Array.isArray(rt.path)) return;
+        rt.path.forEach(function (p) {
+          if (p && typeof p.lat === 'number' && typeof p.lng === 'number') {
+            hasAny = true;
+            bounds.extend(new google.maps.LatLng(p.lat, p.lng));
+          }
+        });
       });
-    });
+    }
 
     _selectedSiteId = siteId;
-    if (hasPoint) {
+    if (hasAny) {
       map.fitBounds(bounds);
     }
     renderFromFirestoreData(_latestData);
