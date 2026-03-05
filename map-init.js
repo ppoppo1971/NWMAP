@@ -78,13 +78,15 @@
     geocoder = new google.maps.Geocoder();
     MWMAP.map = map;
     MWMAP.geocoder = geocoder;
+    // 롱프레스 시 오버레이 클릭 1회 무시용 플래그
+    MWMAP._skipOverlayClickOnce = false;
 
     // 지도 롱프레스 감지용 변수
     var longPressTimer = null;
     var longPressStartLatLng = null;
     var longPressTriggered = false;
     var LONG_PRESS_DURATION = 600; // ms
-    var longPressStartPixel = null;
+    var longPressStartClient = null; // pointer down 시 화면 좌표
 
     function clearLongPressTimer() {
       if (longPressTimer) {
@@ -108,27 +110,91 @@
       }
     });
 
-    // 지도 mousedown → 롱프레스 타이머 시작 (주로 데스크톱용)
-    google.maps.event.addListener(map, 'mousedown', function (event) {
+    // 픽셀 좌표 → 위경도 변환
+    function clientPointToLatLng(clientX, clientY) {
+      var rect = mapEl.getBoundingClientRect();
+      if (!rect || !rect.width || !rect.height) return map.getCenter();
+      var bounds = map.getBounds();
+      if (!bounds) return map.getCenter();
+
+      var xRatio = (clientX - rect.left) / rect.width;
+      var yRatio = (clientY - rect.top) / rect.height;
+      xRatio = Math.max(0, Math.min(1, xRatio));
+      yRatio = Math.max(0, Math.min(1, yRatio));
+
+      var sw = bounds.getSouthWest();
+      var ne = bounds.getNorthEast();
+      var lat = ne.lat() - yRatio * (ne.lat() - sw.lat());
+      var lng = sw.lng() + xRatio * (ne.lng() - sw.lng());
+      return new google.maps.LatLng(lat, lng);
+    }
+
+    function startLongPressFromClientPoint(clientX, clientY) {
       longPressTriggered = false;
-      longPressStartLatLng = event && event.latLng ? event.latLng : null;
-      var projection = map.getProjection();
-      if (projection && longPressStartLatLng) {
-        longPressStartPixel = projection.fromLatLngToPoint(longPressStartLatLng);
-      } else {
-        longPressStartPixel = null;
-      }
+      longPressStartClient = { x: clientX, y: clientY };
+      longPressStartLatLng = clientPointToLatLng(clientX, clientY);
       clearLongPressTimer();
       longPressTimer = setTimeout(function () {
         longPressTimer = null;
         longPressTriggered = true;
         if (longPressStartLatLng) {
+          // 이 롱프레스로 인해 발생하는 오버레이 click 1회 무시
+          MWMAP._skipOverlayClickOnce = true;
           window.dispatchEvent(new CustomEvent('mwmappMapLongPress', {
             detail: { latLng: longPressStartLatLng }
           }));
         }
       }, LONG_PRESS_DURATION);
-    });
+    }
+
+    function handlePointerDown(e) {
+      // 우클릭은 롱프레스 처리하지 않음 (rightclick 리스너 사용)
+      if (e.type === 'mousedown' && e.button === 2) return;
+      // 멀티터치는 롱프레스에서 제외
+      if (e.type === 'touchstart' && e.touches && e.touches.length !== 1) return;
+
+      var clientX, clientY;
+      if (e.type === 'touchstart') {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+      startLongPressFromClientPoint(clientX, clientY);
+    }
+
+    function handlePointerMove(e) {
+      if (!longPressTimer || !longPressStartClient) return;
+      var clientX, clientY;
+      if (e.type === 'touchmove') {
+        if (!e.touches || !e.touches.length) return;
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+      var dx = clientX - longPressStartClient.x;
+      var dy = clientY - longPressStartClient.y;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        clearLongPressTimer();
+      }
+    }
+
+    function handlePointerUpOrCancel() {
+      longPressStartClient = null;
+      clearLongPressTimer();
+    }
+
+    // 캡처 단계에서 이벤트를 받아, 객체 위에서도 롱프레스 감지
+    mapEl.addEventListener('mousedown', handlePointerDown, true);
+    mapEl.addEventListener('touchstart', handlePointerDown, true);
+    mapEl.addEventListener('mousemove', handlePointerMove, true);
+    mapEl.addEventListener('touchmove', handlePointerMove, true);
+    mapEl.addEventListener('mouseup', handlePointerUpOrCancel, true);
+    mapEl.addEventListener('touchend', handlePointerUpOrCancel, true);
+    mapEl.addEventListener('touchcancel', handlePointerUpOrCancel, true);
 
     // 데스크톱: 마우스 오른쪽 클릭으로도 롱프레스 기능 실행
     google.maps.event.addListener(map, 'rightclick', function (event) {
@@ -141,23 +207,7 @@
       }
     });
 
-    // 지도 mousemove → 일정 이상 이동 시 롱프레스 취소
-    google.maps.event.addListener(map, 'mousemove', function (event) {
-      if (!longPressTimer || !longPressStartPixel || !event || !event.latLng) return;
-      var projection = map.getProjection();
-      if (!projection) return;
-      var currentPixel = projection.fromLatLngToPoint(event.latLng);
-      var dx = Math.abs(currentPixel.x - longPressStartPixel.x);
-      var dy = Math.abs(currentPixel.y - longPressStartPixel.y);
-      if (dx > 0.0005 || dy > 0.0005) {
-        clearLongPressTimer();
-      }
-    });
-
-    // mouseup/dragstart/zoom_changed → 롱프레스 취소
-    google.maps.event.addListener(map, 'mouseup', function () {
-      clearLongPressTimer();
-    });
+    // dragstart/zoom_changed → 롱프레스 취소
     google.maps.event.addListener(map, 'dragstart', function () {
       clearLongPressTimer();
     });
@@ -167,7 +217,7 @@
       if (currentZoom !== prevZoom) {
         clearLongPressTimer();
         longPressStartLatLng = null;
-        longPressStartPixel = null;
+        longPressStartClient = null;
       }
       prevZoom = currentZoom;
     });

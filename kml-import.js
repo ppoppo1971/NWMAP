@@ -194,6 +194,10 @@
     // 클릭 시 정보창 (간단 버전)
     var currentInfoWindow = null;
     map.data.addListener('click', function (event) {
+      if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
+        window.MWMAP._skipOverlayClickOnce = false;
+        return;
+      }
       var feature = event.feature;
       var name = feature.getProperty('name') || '이름 없음';
       var description = feature.getProperty('description') || '';
@@ -520,6 +524,10 @@
       });
 
       marker.addListener('click', function () {
+        if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
+          window.MWMAP._skipOverlayClickOnce = false;
+          return;
+        }
         _selectedSiteId = siteId;
         // 선택된 현장 영역으로 확대
         map.fitBounds(bounds);
@@ -605,6 +613,10 @@
         });
         if (isText) {
           marker.addListener('click', function () {
+            if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
+              window.MWMAP._skipOverlayClickOnce = false;
+              return;
+            }
             var html =
               '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;">' +
               '<div style="font-weight:700;margin-bottom:6px;">' + (pt.title || '텍스트') + '</div>';
@@ -676,6 +688,10 @@
 
           // 클릭 시 정보창 + 편집
           m.addListener('click', function () {
+            if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
+              window.MWMAP._skipOverlayClickOnce = false;
+              return;
+            }
             var meta = m.__manualMeta;
             if (!meta || !manualMarkersBySite[meta.siteId]) return;
             var currentPayload = manualMarkersBySite[meta.siteId];
@@ -867,6 +883,10 @@
           line.__dottedOverlay = dottedLine;
 
           line.addListener('click', function (event) {
+            if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
+              window.MWMAP._skipOverlayClickOnce = false;
+              return;
+            }
             var meta = line.__manualRouteMeta;
             if (!meta || !manualRoutesBySite[meta.siteId]) return;
             var payloadSite = manualRoutesBySite[meta.siteId];

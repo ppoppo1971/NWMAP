@@ -190,6 +190,10 @@
         var infoWindow = new google.maps.InfoWindow({ content: infoContent });
 
         marker.addListener('click', function () {
+          if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
+            window.MWMAP._skipOverlayClickOnce = false;
+            return;
+          }
           if (currentInfoWindow) currentInfoWindow.close();
           currentInfoWindow = infoWindow;
           infoWindow.open(map, marker);
