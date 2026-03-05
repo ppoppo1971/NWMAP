@@ -398,13 +398,17 @@
         if (Array.isArray(c) && c.length >= 2) {
           var latP = c[1];
           var lngP = c[0];
-          var isText = !!(props.name || props.description);
+          var blkName = (props.BlkName || props.blockName || '').toString().trim();
+          var isBlockPoint = blkName.length > 0;
+          var isText = !isBlockPoint && !!(props.name || props.description);
+          var pointType = isBlockPoint ? 'blockPoint' : (isText ? 'text' : 'point');
           var pointObj = {
             lat: latP,
             lng: lngP,
-            type: isText ? 'text' : 'point',
+            type: pointType,
             title: props.name || '',
-            description: props.description || ''
+            description: props.description || '',
+            blockName: isBlockPoint ? blkName : undefined
           };
 
           // DXF → KML에서 마커용 레이어(MARKER/마커 등)인 경우: 수동 마커로 취급
@@ -598,14 +602,17 @@
         if (typeof pt.lat !== 'number' || typeof pt.lng !== 'number') return;
         var pos = { lat: pt.lat, lng: pt.lng };
         var isText = pt.type === 'text';
+        var isBlockPoint = pt.type === 'blockPoint';
+        var scale = isText ? 4.8 : 2.5;
+        var fillColor = isBlockPoint ? '#0d9488' : (isText ? '#8b5cf6' : '#facc15'); // 블록: 청녹, 텍스트: 보라, 포인트: 노랑
         var marker = new google.maps.Marker({
           map: map,
           position: pos,
           title: pt.title || '',
           icon: {
             path: google.maps.SymbolPath.CIRCLE,
-            scale: 4,
-            fillColor: isText ? '#8b5cf6' : '#facc15', // 텍스트: 보라, 포인트: 노랑
+            scale: scale,
+            fillColor: fillColor,
             fillOpacity: 1,
             strokeColor: '#ffffff',
             strokeWeight: 1
@@ -625,6 +632,18 @@
                 pt.description + '</div>';
             }
             html += '</div>';
+            openInfoWindowAt(pos, html, null);
+          });
+        } else if (isBlockPoint && (pt.blockName || pt.title)) {
+          marker.addListener('click', function () {
+            if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
+              window.MWMAP._skipOverlayClickOnce = false;
+              return;
+            }
+            var blockLabel = pt.blockName || pt.title || '블록';
+            var html =
+              '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;">' +
+              '<div style="font-weight:700;margin-bottom:6px;">' + blockLabel + '</div></div>';
             openInfoWindowAt(pos, html, null);
           });
         }
@@ -676,8 +695,8 @@
             position: mPos,
             icon: {
               path: google.maps.SymbolPath.CIRCLE,
-              scale: 4,
-              fillColor: '#ef4444', // 수동 마커: 빨간색 (텍스트 마커와 동일 크기)
+              scale: 4.8, // 수동 마커: 빨간색 1.2배
+              fillColor: '#ef4444', // 수동 마커: 빨간색
               fillOpacity: 1,
               strokeColor: '#ffffff',
               strokeWeight: 1
