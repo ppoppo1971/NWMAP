@@ -407,9 +407,11 @@
             lng: lngP,
             type: pointType,
             title: props.name || '',
-            description: props.description || '',
-            blockName: isBlockPoint ? blkName : undefined
+            description: props.description || ''
           };
+          if (isBlockPoint) {
+            pointObj.blockName = blkName;
+          }
 
           // DXF → KML에서 마커용 레이어(MARKER/마커 등)인 경우: 수동 마커로 취급
           if (layer === 'marker' || layer === '마커') {
