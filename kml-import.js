@@ -308,7 +308,10 @@
         '<div style="padding:12px;max-width:260px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
         '<div style="font-size:13px;color:#111827;margin-bottom:8px;">' + addr + '</div>' +
         '<button id="longpress-create-marker-' + idSuffix + '" ' +
-        'style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;font-size:13px;font-weight:500;cursor:pointer;">마커 생성</button>' +
+        'style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;font-size:13px;font-weight:500;cursor:pointer;margin-bottom:6px;">마커 생성</button>' +
+        '<button id="longpress-take-photo-' + idSuffix + '" ' +
+        'style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:13px;font-weight:500;cursor:pointer;">사진 촬영</button>' +
+        '<input type="file" id="longpress-file-input-' + idSuffix + '" accept="image/*" capture="environment" style="display:none;" />' +
         '</div>';
 
       if (_currentInfoWindow) {
@@ -343,25 +346,101 @@
       if (google && google.maps && google.maps.event) {
         google.maps.event.addListenerOnce(_currentInfoWindow, 'domready', function () {
           var btn = document.getElementById('longpress-create-marker-' + idSuffix);
-          if (!btn) return;
-          btn.addEventListener('click', function () {
-            if (_currentInfoWindow) {
-              _currentInfoWindow.close();
-              _currentInfoWindow = null;
-            }
-            if (_longPressTempMarker) {
-              _longPressTempMarker.setMap(null);
-              _longPressTempMarker = null;
-            }
-            var markers = [{
-              lat: lat,
-              lng: lng,
-              title: '',
-              description: '',
-              createdAt: new Date().toISOString()
-            }];
-            openSiteSelectModalForManualMarkers(markers);
-          });
+          var photoBtn = document.getElementById('longpress-take-photo-' + idSuffix);
+          var fileInput = document.getElementById('longpress-file-input-' + idSuffix);
+
+          if (btn) {
+            btn.addEventListener('click', function () {
+              if (_currentInfoWindow) {
+                _currentInfoWindow.close();
+                _currentInfoWindow = null;
+              }
+              if (_longPressTempMarker) {
+                _longPressTempMarker.setMap(null);
+                _longPressTempMarker = null;
+              }
+              var markers = [{
+                lat: lat,
+                lng: lng,
+                title: '',
+                description: '',
+                createdAt: new Date().toISOString()
+              }];
+              openSiteSelectModalForManualMarkers(markers);
+            });
+          }
+
+          if (photoBtn && fileInput) {
+            photoBtn.addEventListener('click', function () {
+              fileInput.click();
+            });
+
+            fileInput.addEventListener('change', function (e) {
+              var file = e.target.files[0];
+              if (!file) return;
+
+              var reader = new FileReader();
+              reader.onload = function (event) {
+                var img = new Image();
+                img.onload = function () {
+                  var canvas = document.createElement('canvas');
+                  var ctx = canvas.getContext('2d');
+                  
+                  // 최대 크기 800px로 제한
+                  var MAX_SIZE = 800;
+                  var width = img.width;
+                  var height = img.height;
+                  
+                  if (width > height) {
+                    if (width > MAX_SIZE) {
+                      height *= MAX_SIZE / width;
+                      width = MAX_SIZE;
+                    }
+                  } else {
+                    if (height > MAX_SIZE) {
+                      width *= MAX_SIZE / height;
+                      height = MAX_SIZE;
+                    }
+                  }
+                  
+                  canvas.width = width;
+                  canvas.height = height;
+                  ctx.drawImage(img, 0, 0, width, height);
+                  
+                  // 품질 0.5 (50%) 압축 적용
+                  var base64Data = canvas.toDataURL('image/jpeg', 0.5);
+                  
+                  // 1MB Firestore 안전을 위해 대략적인 텍스트 크기 확인 (~333333 글자 이내)
+                  if (base64Data.length > 400000) {
+                    alert('사진 용량이 너무 큽니다. Firestore 한도 방지를 위해 더 작은 사진을 선택해 주세요.');
+                    return;
+                  }
+
+                  if (_currentInfoWindow) {
+                    _currentInfoWindow.close();
+                    _currentInfoWindow = null;
+                  }
+                  if (_longPressTempMarker) {
+                    _longPressTempMarker.setMap(null);
+                    _longPressTempMarker = null;
+                  }
+
+                  var markers = [{
+                    lat: lat,
+                    lng: lng,
+                    title: '사진 메모',
+                    description: '',
+                    isPhoto: true,
+                    base64Data: base64Data,
+                    createdAt: new Date().toISOString()
+                  }];
+                  openSiteSelectModalForManualMarkers(markers);
+                };
+                img.src = event.target.result;
+              };
+              reader.readAsDataURL(file);
+            });
+          }
         });
       }
     }
@@ -749,8 +828,8 @@
             position: mPos,
             icon: {
               path: google.maps.SymbolPath.CIRCLE,
-              scale: 4.8, // 수동 마커: 빨간색 1.2배
-              fillColor: '#ef4444', // 수동 마커: 빨간색
+              scale: 4.8,
+              fillColor: mm.isPhoto ? '#3b82f6' : '#ef4444', // 사진이면 파란색, 일반이면 빨간색
               fillOpacity: 1,
               strokeColor: '#ffffff',
               strokeWeight: 1
@@ -775,9 +854,13 @@
             var idSuffix = String(meta.siteId) + '_' + String(meta.index);
             var titleText = cur.title || '';
             var descText = cur.description || '';
+            var imgHtml = cur.isPhoto && cur.base64Data 
+                ? '<div style="margin-bottom:8px;"><img src="' + cur.base64Data + '" style="width:100%;border-radius:6px;max-height:200px;object-fit:contain;background:#f3f4f6;"></div>'
+                : '';
 
             var html =
               '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
+              imgHtml +
               '<div style="margin-bottom:6px;">' +
               '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">새 제목</label>' +
               '<input id="manual-marker-title-' + idSuffix + '" type="text" ' +
@@ -785,7 +868,7 @@
               'value="' + (titleText || '') + '">' +
               '</div>' +
               '<div style="margin-bottom:8px;">' +
-              '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">LINK</label>' +
+              '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">메모 및 링크</label>' +
               '<textarea id="manual-marker-desc-' + idSuffix + '" ' +
               'style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px;min-height:60px;">' +
               (descText || '') + '</textarea>' +
