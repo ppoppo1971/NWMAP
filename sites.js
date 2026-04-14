@@ -110,12 +110,10 @@
           title: d.title || '',
           memo: d.memo || '',
           timestamp: d.timestamp || '',
-          type: d.type || ''
+          type: d.type || '',
+          centerLat: d.centerLat,
+          centerLng: d.centerLng
         });
-        
-        if (d.kmlPayload) mergedData.kmlBySite[id] = d.kmlPayload;
-        if (d.manualMarkers) mergedData.manualMarkersBySite[id] = { markers: d.manualMarkers };
-        if (d.manualRoutes) mergedData.manualRoutesBySite[id] = { routes: d.manualRoutes };
       });
 
       // 최신순 정렬
@@ -128,11 +126,11 @@
       renderSitesList(mergedData.customSchedules);
 
       var renderOk = true;
-      if (window.MWMAP && window.MWMAP.kmlImport && typeof window.MWMAP.kmlImport.renderFromFirestoreData === 'function') {
+      if (window.MWMAP && window.MWMAP.kmlImport && typeof window.MWMAP.kmlImport.renderSiteSummaryMarkers === 'function') {
         try {
-          window.MWMAP.kmlImport.renderFromFirestoreData(mergedData);
+          window.MWMAP.kmlImport.renderSiteSummaryMarkers(mergedData.customSchedules);
         } catch (e) {
-          console.warn('KML 렌더링 실패:', e);
+          console.warn('초록색 요약 마커 렌더링 실패:', e);
           renderOk = false;
         }
       }
@@ -262,21 +260,51 @@
     });
   }
 
+  /**
+   * 현장 삭제 – 하위 서브컬렉션(photos, data)까지 모두 제거하여 고아 데이터 방지
+   */
   function deleteEditingSite() {
     if (!_editingSiteId) return;
-    if (!confirm('이 현장을 삭제하시겠습니까?')) return;
-    
+    if (!confirm('이 현장을 삭제하시겠습니까?\n(관련 도면, 사진, 경로 데이터가 모두 삭제됩니다)')) return;
+
     var siteRef = getSiteDocRef(_editingSiteId);
     if (!siteRef) {
       alert('Firebase 연결이 되지 않았습니다. 잠시 후 다시 시도해 주세요.');
       return;
     }
-    
+
     _pendingLocalChange = true;
-    
-    window.firestore.deleteDoc(siteRef).then(function () {
+    var fs = window.firestore;
+    var siteId = _editingSiteId;
+
+    // 1) photos 서브컬렉션의 모든 문서 삭제
+    var photosRef = fs.collection(window.db, 'users', 'currentUser', SCHEDULES_COLLECTION, siteId, 'photos');
+    var dataRef = fs.collection(window.db, 'users', 'currentUser', SCHEDULES_COLLECTION, siteId, 'data');
+
+    Promise.all([
+      fs.getDocs(photosRef),
+      fs.getDocs(dataRef)
+    ]).then(function (results) {
+      var deletePromises = [];
+      // photos 하위 문서들 삭제
+      results[0].forEach(function (docSnap) {
+        deletePromises.push(fs.deleteDoc(docSnap.ref));
+      });
+      // data 하위 문서들 삭제
+      results[1].forEach(function (docSnap) {
+        deletePromises.push(fs.deleteDoc(docSnap.ref));
+      });
+      return Promise.all(deletePromises);
+    }).then(function () {
+      // 2) 하위 문서 모두 소멸 후 → 현장 본체(껍데기) 삭제
+      return fs.deleteDoc(siteRef);
+    }).then(function () {
       closeEditSiteModal();
       showSyncSuccessBadge();
+      // 삭제된 현장이 활성화 상태였다면 지도 정리
+      if (window.MWMAP && window.MWMAP.kmlImport && typeof window.MWMAP.kmlImport.clearActiveSite === 'function') {
+        window.MWMAP.kmlImport.clearActiveSite();
+      }
     }).catch(function (err) {
       console.error('현장 삭제 실패:', err);
       alert('삭제에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
