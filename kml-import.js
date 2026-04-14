@@ -368,7 +368,11 @@
                 description: '',
                 createdAt: new Date().toISOString()
               }];
-              openSiteSelectModalForManualMarkers(markers);
+              if (_selectedSiteId) {
+                saveManualMarkersForSite(_selectedSiteId, markers);
+              } else {
+                openSiteSelectModalForManualMarkers(markers);
+              }
             });
           }
 
@@ -436,7 +440,11 @@
                     base64Data: base64Data,
                     createdAt: new Date().toISOString()
                   }];
-                  openSiteSelectModalForManualMarkers(markers);
+                  if (_selectedSiteId) {
+                    saveManualMarkersForSite(_selectedSiteId, markers);
+                  } else {
+                    openSiteSelectModalForManualMarkers(markers);
+                  }
                 };
                 img.src = event.target.result;
               };
@@ -610,6 +618,25 @@
     _renderedSiteSummaryMarkers.forEach(function (m) {
       if (m && m.setMap) m.setMap(MWMAP.map);
     });
+
+    var versionLabel = document.getElementById('version-label');
+    if (versionLabel) versionLabel.textContent = '';
+  }
+
+  function openPhotoModal(markerData) {
+    var overlay = document.getElementById('photo-modal-overlay');
+    var img = document.getElementById('photo-modal-img');
+    var title = document.getElementById('photo-modal-title');
+    if (!overlay || !img || !title) return;
+
+    img.src = markerData.base64Data || '';
+    title.textContent = markerData.title || '';
+    overlay.classList.add('show');
+  }
+
+  function closePhotoModal() {
+    var overlay = document.getElementById('photo-modal-overlay');
+    if (overlay) overlay.classList.remove('show');
   }
 
   // Firestore에서 읽어온 kmlBySite 데이터를 기반으로
@@ -768,7 +795,7 @@
         if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
           map.setZoom(targetZoom);
         }
-        map.panTo(latLng);
+        map.setCenter(latLng);
 
         if (onDomReady && google && google.maps && google.maps.event) {
           google.maps.event.addListenerOnce(_currentInfoWindow, 'domready', function () {
@@ -918,25 +945,20 @@
 
             var idSuffix = String(meta.siteId) + '_' + String(meta.index);
             var titleText = cur.title || '';
-            var descText = cur.description || '';
-            var imgHtml = cur.isPhoto && cur.base64Data 
-                ? '<div style="margin-bottom:8px;"><img src="' + cur.base64Data + '" style="width:100%;border-radius:6px;max-height:200px;object-fit:contain;background:#f3f4f6;"></div>'
-                : '';
+            
+            // 사진인 경우 전체화면 모달 호출
+            if (cur.isPhoto) {
+              openPhotoModal(cur);
+              return;
+            }
 
             var html =
               '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
-              imgHtml +
               '<div style="margin-bottom:6px;">' +
               '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">새 제목</label>' +
               '<input id="manual-marker-title-' + idSuffix + '" type="text" ' +
               'style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px;" ' +
               'value="' + (titleText || '') + '">' +
-              '</div>' +
-              '<div style="margin-bottom:8px;">' +
-              '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">메모 및 링크</label>' +
-              '<textarea id="manual-marker-desc-' + idSuffix + '" ' +
-              'style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px;min-height:60px;">' +
-              (descText || '') + '</textarea>' +
               '</div>' +
               '<div style="display:flex;gap:6px;">' +
               '<button id="manual-marker-save-' + idSuffix + '" ' +
@@ -950,11 +972,9 @@
               var saveBtn = document.getElementById('manual-marker-save-' + idSuffix);
               var deleteBtn = document.getElementById('manual-marker-delete-' + idSuffix);
               var titleInput = document.getElementById('manual-marker-title-' + idSuffix);
-              var descInput = document.getElementById('manual-marker-desc-' + idSuffix);
               if (saveBtn) {
                 saveBtn.addEventListener('click', function () {
                   var newTitle = titleInput ? titleInput.value.trim() : '';
-                  var newDesc = descInput ? descInput.value.trim() : '';
                   if (!window.firestore || !window.db) {
                     alert('Firebase 연결이 되지 않았습니다. 잠시 후 다시 시도해 주세요.');
                     return;
@@ -967,8 +987,7 @@
                   }
                   var ref = firestore.doc(window.db, 'users', 'currentUser', 'schedules', meta.siteId, 'photos', photoDocId);
                   firestore.updateDoc(ref, {
-                    title: newTitle,
-                    description: newDesc
+                    title: newTitle
                   }).then(function () {
                     if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
                       MWMAP.sites.showSyncSuccessBadge();
@@ -1258,13 +1277,18 @@
     _selectedSiteId = siteId;
 
     // 초록색 요약 마커 상태 업데이트 (선택된 현장의 초록 원 숨기기)
+    var siteTitle = '';
     _renderedSiteSummaryMarkers.forEach(function (m) {
       if (m && m.__siteId === siteId) {
         m.setMap(null);
+        siteTitle = m.title ? m.title.replace(' (현장)', '') : '';
       } else if (m && m.setMap) {
         m.setMap(map);
       }
     });
+
+    var versionLabel = document.getElementById('version-label');
+    if (versionLabel) versionLabel.textContent = siteTitle;
 
     // 기존 세부 렌더링 제거
     clearRenderedFromFirestore();
@@ -1692,7 +1716,11 @@
           if (_manualRoutePointsTemp.length >= 2) {
             // path는 {lat,lng} 배열로 저장
             var pathToSave = _manualRoutePointsTemp.slice();
-            openSiteSelectModalForManualRoute(pathToSave);
+            if (_selectedSiteId) {
+              saveManualRouteForSite(_selectedSiteId, pathToSave);
+            } else {
+              openSiteSelectModalForManualRoute(pathToSave);
+            }
           } else {
             if (_manualRouteTempLine && _manualRouteTempLine.setMap) {
               _manualRouteTempLine.setMap(null);
@@ -1766,6 +1794,18 @@
       if (!e || !e.detail || !e.detail.latLng) return;
       handleMapLongPress(e.detail.latLng);
     });
+
+    // 사진 모달 닫기 바인딩
+    var photoOverlay = document.getElementById('photo-modal-overlay');
+    var photoCloseBtn = document.getElementById('photo-modal-close');
+    if (photoOverlay) {
+      photoOverlay.addEventListener('click', function (e) {
+        if (e.target === photoOverlay) closePhotoModal();
+      });
+    }
+    if (photoCloseBtn) {
+      photoCloseBtn.addEventListener('click', closePhotoModal);
+    }
   }
 
   MWMAP.kmlImport = {

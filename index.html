@@ -740,10 +740,65 @@ a[href^="https://maps.google.com/maps"],
   pointer-events: none;
 }
 
+/* 사진 전체화면 모달 */
+#photo-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.95);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#photo-modal-overlay.show {
+  display: flex;
+  opacity: 1;
+}
+#photo-modal-dialog {
+  position: relative;
+  width: 95%;
+  max-width: 1200px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#photo-modal-img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(255, 255, 255, 0.1);
+}
+#photo-modal-title {
+  margin-top: 15px;
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 500;
+  text-align: center;
+  max-width: 90%;
+}
+#photo-modal-close {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 2.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 5px;
+  z-index: 2001;
+}
+
   </style>
 </head>
 <body>
-  <div id="version-label" aria-hidden="true">060822</div>
+  <div id="version-label" aria-hidden="true"></div>
   <span class="sync-badge hide" id="sync-badge" aria-live="polite">동기화됨</span>
   <div id="app-root">
     <div id="map"></div>
@@ -825,6 +880,15 @@ a[href^="https://maps.google.com/maps"],
         <button type="button" class="dialog-close" id="address-dialog-close" title="닫기">&times;</button>
       </div>
       <div id="address-select-list"></div>
+    </div>
+  </div>
+
+  <!-- 사진 전체화면 모달 -->
+  <div id="photo-modal-overlay" aria-hidden="true">
+    <div id="photo-modal-dialog">
+      <button type="button" id="photo-modal-close" title="닫기">&times;</button>
+      <img id="photo-modal-img" src="" alt="현장 사진">
+      <div id="photo-modal-title"></div>
     </div>
   </div>
 
