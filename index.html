@@ -845,9 +845,12 @@ a[href^="https://maps.google.com/maps"],
           window.db = db;
           window.firestore = {
             doc: firestore.doc,
+            collection: firestore.collection,
             getDoc: firestore.getDoc,
+            getDocs: firestore.getDocs,
             setDoc: firestore.setDoc,
             updateDoc: firestore.updateDoc,
+            deleteDoc: firestore.deleteDoc,
             arrayUnion: firestore.arrayUnion,
             onSnapshot: firestore.onSnapshot,
             serverTimestamp: firestore.serverTimestamp

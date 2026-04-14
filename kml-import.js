@@ -895,15 +895,14 @@
                     return;
                   }
                   var firestore = window.firestore;
-                  var ref = firestore.doc(window.db, 'users', 'currentUser');
+                  var ref = firestore.doc(window.db, 'users', 'currentUser', 'schedules', meta.siteId);
                   firestore.getDoc(ref).then(function (snap) {
                     if (!snap.exists()) return;
                     var dataFull = snap.data() || {};
-                    var bySite = dataFull.manualMarkersBySite || {};
-                    var payloadSite = bySite[meta.siteId];
-                    if (!payloadSite || !Array.isArray(payloadSite.markers)) return;
-                    if (meta.index < 0 || meta.index >= payloadSite.markers.length) return;
-                    var markersArr = payloadSite.markers.slice();
+                    var existingMarkers = Array.isArray(dataFull.manualMarkers) ? dataFull.manualMarkers : [];
+                    if (meta.index < 0 || meta.index >= existingMarkers.length) return;
+                    
+                    var markersArr = existingMarkers.slice();
                     var target = markersArr[meta.index] || {};
                     var updatedMarker = {};
                     for (var k in target) {
@@ -915,13 +914,10 @@
                     updatedMarker.description = newDesc;
                     markersArr[meta.index] = updatedMarker;
 
-                    var updateData = {};
-                    updateData['manualMarkersBySite.' + meta.siteId] = {
-                      markers: markersArr,
-                      updatedAt: new Date().toISOString()
-                    };
-                    updateData.lastUpdated = firestore.serverTimestamp();
-                    return firestore.updateDoc(ref, updateData);
+                    return firestore.updateDoc(ref, {
+                      manualMarkers: markersArr,
+                      lastUpdated: firestore.serverTimestamp()
+                    });
                   }).then(function () {
                     if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
                       MWMAP.sites.showSyncSuccessBadge();
@@ -944,24 +940,20 @@
                     return;
                   }
                   var firestore = window.firestore;
-                  var ref = firestore.doc(window.db, 'users', 'currentUser');
+                  var ref = firestore.doc(window.db, 'users', 'currentUser', 'schedules', meta.siteId);
                   firestore.getDoc(ref).then(function (snap) {
                     if (!snap.exists()) return;
                     var dataFull = snap.data() || {};
-                    var bySite = dataFull.manualMarkersBySite || {};
-                    var payloadSite = bySite[meta.siteId];
-                    if (!payloadSite || !Array.isArray(payloadSite.markers)) return;
-                    var markersArr = payloadSite.markers.slice();
-                    if (meta.index < 0 || meta.index >= markersArr.length) return;
+                    var existingMarkers = Array.isArray(dataFull.manualMarkers) ? dataFull.manualMarkers : [];
+                    if (meta.index < 0 || meta.index >= existingMarkers.length) return;
+                    
+                    var markersArr = existingMarkers.slice();
                     markersArr.splice(meta.index, 1);
 
-                    var updateData = {};
-                    updateData['manualMarkersBySite.' + meta.siteId] = {
-                      markers: markersArr,
-                      updatedAt: new Date().toISOString()
-                    };
-                    updateData.lastUpdated = firestore.serverTimestamp();
-                    return firestore.updateDoc(ref, updateData);
+                    return firestore.updateDoc(ref, {
+                      manualMarkers: markersArr,
+                      lastUpdated: firestore.serverTimestamp()
+                    });
                   }).then(function () {
                     if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
                       MWMAP.sites.showSyncSuccessBadge();
@@ -1071,24 +1063,20 @@
                   return;
                 }
                 var firestore = window.firestore;
-                var ref = firestore.doc(window.db, 'users', 'currentUser');
+                var ref = firestore.doc(window.db, 'users', 'currentUser', 'schedules', meta.siteId);
                 firestore.getDoc(ref).then(function (snap) {
                   if (!snap.exists()) return;
                   var dataFull = snap.data() || {};
-                  var bySite = dataFull.manualRoutesBySite || {};
-                  var payloadSiteFull = bySite[meta.siteId];
-                  if (!payloadSiteFull || !Array.isArray(payloadSiteFull.routes)) return;
-                  var routesArr = payloadSiteFull.routes.slice();
-                  if (meta.index < 0 || meta.index >= routesArr.length) return;
+                  var existingRoutes = Array.isArray(dataFull.manualRoutes) ? dataFull.manualRoutes : [];
+                  if (meta.index < 0 || meta.index >= existingRoutes.length) return;
+                  
+                  var routesArr = existingRoutes.slice();
                   routesArr.splice(meta.index, 1);
 
-                  var updateData = {};
-                  updateData['manualRoutesBySite.' + meta.siteId] = {
-                    routes: routesArr,
-                    updatedAt: new Date().toISOString()
-                  };
-                  updateData.lastUpdated = firestore.serverTimestamp();
-                  return firestore.updateDoc(ref, updateData);
+                  return firestore.updateDoc(ref, {
+                    manualRoutes: routesArr,
+                    lastUpdated: firestore.serverTimestamp()
+                  });
                 }).then(function () {
                   if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
                     MWMAP.sites.showSyncSuccessBadge();
@@ -1292,22 +1280,11 @@
   function saveKmlForSite(siteId, payload) {
     if (!siteId || !payload) return;
     var firestore = window.firestore;
-    var ref = firestore.doc(window.db, 'users', 'currentUser');
+    var ref = firestore.doc(window.db, 'users', 'currentUser', 'schedules', siteId);
 
-    firestore.getDoc(ref).then(function (snap) {
-      if (!snap.exists()) {
-        var obj = {};
-        obj[siteId] = payload;
-        return firestore.setDoc(ref, {
-          customSchedules: [],
-          kmlBySite: obj,
-          lastUpdated: firestore.serverTimestamp()
-        });
-      }
-      var updateData = {};
-      updateData['kmlBySite.' + siteId] = payload;
-      updateData.lastUpdated = firestore.serverTimestamp();
-      return firestore.updateDoc(ref, updateData);
+    firestore.updateDoc(ref, {
+      kmlPayload: payload,
+      lastUpdated: firestore.serverTimestamp()
     }).then(function () {
       // KML 저장 이후, KML에서 추출된 수동 마커/경로가 있다면 함께 저장
       if (payload.manualMarkersFromKml && payload.manualMarkersFromKml.length) {
@@ -1339,36 +1316,18 @@
   function saveManualMarkersForSite(siteId, markers) {
     if (!siteId || !markers || !markers.length) return;
     var firestore = window.firestore;
-    var ref = firestore.doc(window.db, 'users', 'currentUser');
+    var ref = firestore.doc(window.db, 'users', 'currentUser', 'schedules', siteId);
 
     firestore.getDoc(ref).then(function (snap) {
-      if (!snap.exists()) {
-        var payloadNew = {
-          markers: markers.slice(),
-          updatedAt: new Date().toISOString()
-        };
-        var manualObj = {};
-        manualObj[siteId] = payloadNew;
-        return firestore.setDoc(ref, {
-          customSchedules: [],
-          kmlBySite: {},
-          manualMarkersBySite: manualObj,
-          lastUpdated: firestore.serverTimestamp()
-        });
-      }
+      if (!snap.exists()) return Promise.resolve();
       var data = snap.data() || {};
-      var existingBySite = data.manualMarkersBySite || {};
-      var existingPayload = existingBySite[siteId] || {};
-      var existingMarkers = Array.isArray(existingPayload.markers) ? existingPayload.markers : [];
+      var existingMarkers = Array.isArray(data.manualMarkers) ? data.manualMarkers : [];
       var merged = existingMarkers.concat(markers.slice());
 
-      var updateData = {};
-      updateData['manualMarkersBySite.' + siteId] = {
-        markers: merged,
-        updatedAt: new Date().toISOString()
-      };
-      updateData.lastUpdated = firestore.serverTimestamp();
-      return firestore.updateDoc(ref, updateData);
+      return firestore.updateDoc(ref, {
+        manualMarkers: merged,
+        lastUpdated: firestore.serverTimestamp()
+      });
     }).then(function () {
       closeSiteSelectModal();
       if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
@@ -1402,7 +1361,7 @@
   function saveManualRouteForSite(siteId, pathOrRoutes) {
     if (!siteId || !pathOrRoutes || !pathOrRoutes.length) return;
     var firestore = window.firestore;
-    var ref = firestore.doc(window.db, 'users', 'currentUser');
+    var ref = firestore.doc(window.db, 'users', 'currentUser', 'schedules', siteId);
 
     var routesToAdd = [];
     // pathOrRoutes가 단일 경로(path 배열)인지, 이미 객체 배열인지 판별
@@ -1419,33 +1378,15 @@
     if (!routesToAdd.length) return;
 
     firestore.getDoc(ref).then(function (snap) {
-      if (!snap.exists()) {
-        var routeBySite = {};
-        routeBySite[siteId] = {
-          routes: routesToAdd,
-          updatedAt: new Date().toISOString()
-        };
-        return firestore.setDoc(ref, {
-          customSchedules: [],
-          kmlBySite: {},
-          manualMarkersBySite: {},
-          manualRoutesBySite: routeBySite,
-          lastUpdated: firestore.serverTimestamp()
-        });
-      }
+      if (!snap.exists()) return Promise.resolve();
       var data = snap.data() || {};
-      var existingBySite = data.manualRoutesBySite || {};
-      var existingPayload = existingBySite[siteId] || {};
-      var existingRoutes = Array.isArray(existingPayload.routes) ? existingPayload.routes : [];
+      var existingRoutes = Array.isArray(data.manualRoutes) ? data.manualRoutes : [];
       var merged = existingRoutes.concat(routesToAdd);
 
-      var updateData = {};
-      updateData['manualRoutesBySite.' + siteId] = {
-        routes: merged,
-        updatedAt: new Date().toISOString()
-      };
-      updateData.lastUpdated = firestore.serverTimestamp();
-      return firestore.updateDoc(ref, updateData);
+      return firestore.updateDoc(ref, {
+        manualRoutes: merged,
+        lastUpdated: firestore.serverTimestamp()
+      });
     }).then(function () {
       closeSiteSelectModal();
       if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {

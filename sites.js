@@ -5,15 +5,20 @@
  */
 (function (MWMAP) {
   var USER_DOC_PATH = ['users', 'currentUser'];
-  var SITES_FIELD = 'customSchedules';
+  var SCHEDULES_COLLECTION = 'schedules';
   var _initialSynced = false;
   var _pendingLocalChange = false;
   var _initialSyncTimeout = null;
   var _editingSiteId = null;
 
-  function getDocRef() {
+  function getCollectionRef() {
     if (!window.db || !window.firestore) return null;
-    return window.firestore.doc(window.db, USER_DOC_PATH[0], USER_DOC_PATH[1]);
+    return window.firestore.collection(window.db, USER_DOC_PATH[0], USER_DOC_PATH[1], SCHEDULES_COLLECTION);
+  }
+
+  function getSiteDocRef(siteId) {
+    if (!window.db || !window.firestore || !siteId) return null;
+    return window.firestore.doc(window.db, USER_DOC_PATH[0], USER_DOC_PATH[1], SCHEDULES_COLLECTION, siteId);
   }
 
   function showAddSiteModal() {
@@ -86,20 +91,46 @@
   }
 
   function subscribeFirestore() {
-    var ref = getDocRef();
-    if (!ref) return;
+    var collRef = getCollectionRef();
+    if (!collRef) return;
 
-    // 스냅샷이 한 번이라도 오면 초기 동기화 성공으로 간주 (데스크톱/모바일 공통)
-    window.firestore.onSnapshot(ref, function (snap) {
-      var data = snap.data();
-      var sites = (data && data[SITES_FIELD]) ? data[SITES_FIELD] : [];
-      renderSitesList(sites);
+    window.firestore.onSnapshot(collRef, function (querySnapshot) {
+      var mergedData = {
+        customSchedules: [],
+        kmlBySite: {},
+        manualMarkersBySite: {},
+        manualRoutesBySite: {}
+      };
 
-      // 저장된 KML 요약 데이터가 있다면 지도에 그리기
+      querySnapshot.forEach(function(docSnap) {
+        var id = docSnap.id;
+        var d = docSnap.data();
+        mergedData.customSchedules.push({
+          id: id,
+          title: d.title || '',
+          memo: d.memo || '',
+          timestamp: d.timestamp || '',
+          type: d.type || ''
+        });
+        
+        if (d.kmlPayload) mergedData.kmlBySite[id] = d.kmlPayload;
+        if (d.manualMarkers) mergedData.manualMarkersBySite[id] = { markers: d.manualMarkers };
+        if (d.manualRoutes) mergedData.manualRoutesBySite[id] = { routes: d.manualRoutes };
+      });
+
+      // 최신순 정렬
+      mergedData.customSchedules.sort(function(a, b) {
+        var ta = a.timestamp || '';
+        var tb = b.timestamp || '';
+        return ta > tb ? -1 : (ta < tb ? 1 : 0);
+      });
+
+      renderSitesList(mergedData.customSchedules);
+
       var renderOk = true;
       if (window.MWMAP && window.MWMAP.kmlImport && typeof window.MWMAP.kmlImport.renderFromFirestoreData === 'function') {
         try {
-          window.MWMAP.kmlImport.renderFromFirestoreData(data || {});
+          window.MWMAP.kmlImport.renderFromFirestoreData(mergedData);
         } catch (e) {
           console.warn('KML 렌더링 실패:', e);
           renderOk = false;
@@ -112,25 +143,18 @@
       }
       if (!_initialSynced) {
         _initialSynced = true;
-        if (renderOk) {
-          showSyncSuccessBadge();
-        } else {
-          showSyncErrorBadge();
-        }
+        if (renderOk) showSyncSuccessBadge();
+        else showSyncErrorBadge();
       } else if (_pendingLocalChange) {
         _pendingLocalChange = false;
-        if (renderOk) {
-          showSyncSuccessBadge();
-        } else {
-          showSyncErrorBadge();
-        }
+        if (renderOk) showSyncSuccessBadge();
+        else showSyncErrorBadge();
       }
     }, function (err) {
       console.warn('Firestore 현장 목록 구독 실패:', err);
       showSyncErrorBadge();
     });
 
-    // 일정 시간 안에 어떤 스냅샷도 받지 못하면 동기화 실패 토스트 표시
     if (_initialSyncTimeout) {
       clearTimeout(_initialSyncTimeout);
     }
@@ -145,44 +169,32 @@
     var input = document.getElementById('add-site-title');
     var memoInput = document.getElementById('add-site-memo');
     var title = input ? input.value.trim() : '';
-    if (!title) {
-      return;
-    }
+    if (!title) return;
+    
     var memo = memoInput ? memoInput.value.trim() : '';
-    var ref = getDocRef();
-    if (!ref) {
+    var newId = 'site_' + Date.now();
+    var siteRef = getSiteDocRef(newId);
+    if (!siteRef) {
       alert('Firebase 연결이 되지 않았습니다. 잠시 후 다시 시도해 주세요.');
       return;
     }
+
     var newItem = {
-      id: 'site_' + Date.now(),
+      id: newId,
       title: title,
       memo: memo,
       timestamp: new Date().toISOString(),
-      type: 'custom_schedule'
+      type: 'custom_schedule',
+      lastUpdated: window.firestore.serverTimestamp()
     };
+    
     _pendingLocalChange = true;
 
-    window.firestore.getDoc(ref).then(function (snap) {
-      var existing = (snap.exists() && snap.data() && snap.data().customSchedules) ? snap.data().customSchedules : [];
-      var updated = [newItem].concat(existing);
-      if (!snap.exists()) {
-        return window.firestore.setDoc(ref, {
-          customSchedules: updated,
-          lastUpdated: window.firestore.serverTimestamp()
-        });
-      }
-      return window.firestore.updateDoc(ref, {
-        customSchedules: updated,
-        lastUpdated: window.firestore.serverTimestamp()
-      });
-    }).then(function () {
+    window.firestore.setDoc(siteRef, newItem).then(function () {
       closeAddSiteModal();
-      // Firebase 쓰기 성공 시점에서 즉시 동기화 토스트 표시 (데스크톱/모바일 공통)
       showSyncSuccessBadge();
     }).catch(function (err) {
       console.error('현장 추가 실패:', err);
-      console.error('Firebase 오류 상세:', err && err.code, err && err.message);
       alert('저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
     });
   }
@@ -199,20 +211,16 @@
       memoInput.value = '';
     }
     // Firebase에서 해당 현장의 메모를 읽어와 입력란에 채움
-    var ref = getDocRef();
-    if (ref && _editingSiteId) {
-      window.firestore.getDoc(ref).then(function (snap) {
+    var siteRef = getSiteDocRef(_editingSiteId);
+    if (siteRef && _editingSiteId) {
+      window.firestore.getDoc(siteRef).then(function (snap) {
         if (!snap.exists()) return;
         var data = snap.data() || {};
-        var existing = data.customSchedules || [];
-        var found = existing.filter(function (item) {
-          return item && item.id === _editingSiteId;
-        })[0];
-        if (found && memoInput) {
-          memoInput.value = found.memo || '';
+        if (memoInput && data.memo !== undefined) {
+          memoInput.value = data.memo || '';
         }
       }).catch(function () {
-        // 메모 로드는 실패해도 전체 흐름에는 영향 없음
+        // 무시
       });
     }
     setTimeout(function () {
@@ -233,34 +241,18 @@
     var newTitle = input ? input.value.trim() : '';
     if (!_editingSiteId || !newTitle) return;
     var newMemo = memoInput ? memoInput.value.trim() : '';
-    var ref = getDocRef();
-    if (!ref) {
+    
+    var siteRef = getSiteDocRef(_editingSiteId);
+    if (!siteRef) {
       alert('Firebase 연결이 되지 않았습니다. 잠시 후 다시 시도해 주세요.');
       return;
     }
     _pendingLocalChange = true;
-    window.firestore.getDoc(ref).then(function (snap) {
-      if (!snap.exists()) return;
-      var data = snap.data() || {};
-      var existing = data.customSchedules || [];
-      var updated = existing.map(function (item) {
-        if (item && item.id === _editingSiteId) {
-          var copy = {};
-          for (var k in item) {
-            if (Object.prototype.hasOwnProperty.call(item, k)) {
-              copy[k] = item[k];
-            }
-          }
-          copy.title = newTitle;
-          copy.memo = newMemo;
-          return copy;
-        }
-        return item;
-      });
-      return window.firestore.updateDoc(ref, {
-        customSchedules: updated,
-        lastUpdated: window.firestore.serverTimestamp()
-      });
+    
+    window.firestore.updateDoc(siteRef, {
+      title: newTitle,
+      memo: newMemo,
+      lastUpdated: window.firestore.serverTimestamp()
     }).then(function () {
       closeEditSiteModal();
       showSyncSuccessBadge();
@@ -273,55 +265,16 @@
   function deleteEditingSite() {
     if (!_editingSiteId) return;
     if (!confirm('이 현장을 삭제하시겠습니까?')) return;
-    var ref = getDocRef();
-    if (!ref) {
+    
+    var siteRef = getSiteDocRef(_editingSiteId);
+    if (!siteRef) {
       alert('Firebase 연결이 되지 않았습니다. 잠시 후 다시 시도해 주세요.');
       return;
     }
+    
     _pendingLocalChange = true;
-    window.firestore.getDoc(ref).then(function (snap) {
-      if (!snap.exists()) return;
-      var data = snap.data() || {};
-      var existing = data.customSchedules || [];
-      var updated = existing.filter(function (item) {
-        return !(item && item.id === _editingSiteId);
-      });
-      var updateData = {
-        customSchedules: updated,
-        lastUpdated: window.firestore.serverTimestamp()
-      };
-      // 해당 현장에 연결된 KML 데이터도 함께 정리
-      if (data.kmlBySite && typeof data.kmlBySite === 'object') {
-        var kmlBySite = {};
-        for (var k in data.kmlBySite) {
-          if (Object.prototype.hasOwnProperty.call(data.kmlBySite, k) && k !== _editingSiteId) {
-            kmlBySite[k] = data.kmlBySite[k];
-          }
-        }
-        updateData.kmlBySite = kmlBySite;
-      }
-      // 해당 현장에 연결된 수동 마커 데이터도 함께 정리
-      if (data.manualMarkersBySite && typeof data.manualMarkersBySite === 'object') {
-        var manualMarkersBySite = {};
-        for (var mk in data.manualMarkersBySite) {
-          if (Object.prototype.hasOwnProperty.call(data.manualMarkersBySite, mk) && mk !== _editingSiteId) {
-            manualMarkersBySite[mk] = data.manualMarkersBySite[mk];
-          }
-        }
-        updateData.manualMarkersBySite = manualMarkersBySite;
-      }
-      // 해당 현장에 연결된 수동 경로 데이터도 함께 정리
-      if (data.manualRoutesBySite && typeof data.manualRoutesBySite === 'object') {
-        var manualRoutesBySite = {};
-        for (var rk in data.manualRoutesBySite) {
-          if (Object.prototype.hasOwnProperty.call(data.manualRoutesBySite, rk) && rk !== _editingSiteId) {
-            manualRoutesBySite[rk] = data.manualRoutesBySite[rk];
-          }
-        }
-        updateData.manualRoutesBySite = manualRoutesBySite;
-      }
-      return window.firestore.updateDoc(ref, updateData);
-    }).then(function () {
+    
+    window.firestore.deleteDoc(siteRef).then(function () {
       closeEditSiteModal();
       showSyncSuccessBadge();
     }).catch(function (err) {
