@@ -27,6 +27,9 @@
   var _longPressTempMarker = null;
   var _renderedSiteSummaryMarkers = [];
   var _sitesMeta = [];
+  var _activePhotoSiteId = null;
+  var _activePhotoDocId = null;
+  var _activePhotoData = null;
 
   function ensureDeps() {
     if (typeof toGeoJSON === 'undefined') {
@@ -627,10 +630,18 @@
     var overlay = document.getElementById('photo-modal-overlay');
     var img = document.getElementById('photo-modal-img');
     var title = document.getElementById('photo-modal-title');
+    var memo = document.getElementById('photo-modal-memo');
     if (!overlay || !img || !title) return;
+
+    _activePhotoSiteId = markerData.__siteId || _selectedSiteId;
+    _activePhotoDocId = markerData.__photoDocId || null;
+    _activePhotoData = markerData;
 
     img.src = markerData.base64Data || '';
     title.textContent = markerData.title || '';
+    if (memo) {
+      memo.value = markerData.description || '';
+    }
     overlay.classList.add('show');
   }
 
@@ -823,7 +834,7 @@
       if (hasKml) {
         var payloadSel = data.kmlBySite[_selectedSiteId];
         var shapesSel = payloadSel && payloadSel.shapes ? payloadSel.shapes : { points: [], lines: [], polygons: [] };
-      (shapesSel.points || []).forEach(function (pt) {
+      (shapesSel.points || []).forEach(function (pt, pIdx) {
         if (typeof pt.lat !== 'number' || typeof pt.lng !== 'number') return;
         var pos = { lat: pt.lat, lng: pt.lng };
         var isText = pt.type === 'text';
@@ -849,15 +860,59 @@
               window.MWMAP._skipOverlayClickOnce = false;
               return;
             }
+            var idSuffix = 'kml_pt_' + pIdx;
             var html =
               '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;">' +
-              '<div style="font-weight:700;margin-bottom:6px;">' + (pt.title || '텍스트') + '</div>';
-            if (pt.description) {
-              html += '<div style="font-size:13px;color:#6b7280;line-height:1.4;">' +
-                pt.description + '</div>';
-            }
-            html += '</div>';
-            openInfoWindowAt(pos, html, null);
+              '<div style="margin-bottom:6px;">' +
+              '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">포인트 제목</label>' +
+              '<input id="kml-pt-title-' + idSuffix + '" type="text" ' +
+              'style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px;" ' +
+              'value="' + (pt.title || '') + '">' +
+              '</div>' +
+              '<div style="margin-bottom:8px;">' +
+              '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">설명</label>' +
+              '<textarea id="kml-pt-desc-' + idSuffix + '" ' +
+              'style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px;min-height:60px;">' +
+              (pt.description || '') + '</textarea>' +
+              '</div>' +
+              '<button id="kml-pt-save-' + idSuffix + '" ' +
+              'style="width:100%;padding:8px 10px;border:none;border-radius:6px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;font-size:13px;font-weight:500;cursor:pointer;">속성 저장</button>' +
+              '</div>';
+
+            openInfoWindowAt(pos, html, function () {
+              var saveBtn = document.getElementById('kml-pt-save-' + idSuffix);
+              if (!saveBtn) return;
+              saveBtn.addEventListener('click', function () {
+                var newTitle = document.getElementById('kml-pt-title-' + idSuffix).value.trim();
+                var newDesc = document.getElementById('kml-pt-desc-' + idSuffix).value.trim();
+                
+                if (!window.firestore || !window.db) return;
+                var fs = window.firestore;
+                var kmlRef = fs.doc(window.db, 'users', 'currentUser', 'schedules', _selectedSiteId, 'data', 'kml_doc');
+                
+                fs.getDoc(kmlRef).then(function (snap) {
+                  if (!snap || !snap.exists || !snap.exists()) return;
+                  var kmlData = snap.data();
+                  if (kmlData && kmlData.shapes && Array.isArray(kmlData.shapes.points)) {
+                    kmlData.shapes.points[pIdx].title = newTitle;
+                    kmlData.shapes.points[pIdx].description = newDesc;
+                    return fs.setDoc(kmlRef, kmlData);
+                  }
+                }).then(function () {
+                  if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+                    MWMAP.sites.showSyncSuccessBadge();
+                  }
+                  if (_currentInfoWindow) {
+                    _currentInfoWindow.close();
+                    _currentInfoWindow = null;
+                  }
+                  focusSite(_selectedSiteId); // 맵 다시 그리기
+                }).catch(function (err) {
+                  console.error('KML 포인트 저장 실패:', err);
+                  alert('포인트 정보를 저장하는 데 실패했습니다.');
+                });
+              });
+            });
           });
         } else if (isBlockPoint && (pt.blockName || pt.title)) {
           marker.addListener('click', function () {
@@ -1105,6 +1160,15 @@
             var lengthKm = computeRouteDistanceKm(route.path);
             var pos = event && event.latLng ? event.latLng : new google.maps.LatLng(pathLatLng[0].lat, pathLatLng[0].lng);
             var idSuffix = String(meta.siteId) + '_' + String(meta.index);
+
+            // 경로 전체 확대 (fitBounds)
+            if (google && google.maps) {
+              var bounds = new google.maps.LatLngBounds();
+              pathLatLng.forEach(function (p) { bounds.extend(p); });
+              map.fitBounds(bounds);
+              // snap to click point center if needed, but fitBounds is better for routes.
+              // To ensure instant snap, we can setCenter to midpoint first if requested.
+            }
 
             var html =
               '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
@@ -1805,6 +1869,36 @@
     }
     if (photoCloseBtn) {
       photoCloseBtn.addEventListener('click', closePhotoModal);
+    }
+
+    // 사진 모달 메모 저장 바인딩
+    var photoSaveBtn = document.getElementById('photo-modal-save-btn');
+    if (photoSaveBtn) {
+      photoSaveBtn.addEventListener('click', function () {
+        var memoEl = document.getElementById('photo-modal-memo');
+        var newMemo = memoEl ? memoEl.value.trim() : '';
+        if (!_activePhotoSiteId || !_activePhotoDocId) {
+          alert('수정할 사진 정보가 올바르지 않습니다.');
+          return;
+        }
+        if (!window.firestore || !window.db) return;
+        var firestore = window.firestore;
+        var ref = firestore.doc(window.db, 'users', 'currentUser', 'schedules', _activePhotoSiteId, 'photos', _activePhotoDocId);
+        
+        firestore.updateDoc(ref, {
+          description: newMemo
+        }).then(function () {
+          if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+            MWMAP.sites.showSyncSuccessBadge();
+          }
+          // 데이터 캐시 업데이트 및 현장 다시 로드 (필요시)
+          if (_activePhotoData) _activePhotoData.description = newMemo;
+          alert('메모가 저장되었습니다.');
+        }).catch(function (err) {
+          console.error('사진 메모 저장 실패:', err);
+          alert('메모 저장에 실패했습니다.');
+        });
+      });
     }
   }
 

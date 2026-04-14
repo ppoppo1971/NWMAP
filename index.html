@@ -794,6 +794,42 @@ a[href^="https://maps.google.com/maps"],
   padding: 5px;
   z-index: 2001;
 }
+#photo-modal-memo-container {
+  width: 100%;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#photo-modal-memo {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 0.95rem;
+  resize: vertical;
+  min-height: 60px;
+}
+#photo-modal-memo::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+#photo-modal-save-btn {
+  align-self: flex-end;
+  padding: 8px 16px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+#photo-modal-save-btn:active {
+  background: #2563eb;
+}
 
   </style>
 </head>
@@ -889,6 +925,10 @@ a[href^="https://maps.google.com/maps"],
       <button type="button" id="photo-modal-close" title="닫기">&times;</button>
       <img id="photo-modal-img" src="" alt="현장 사진">
       <div id="photo-modal-title"></div>
+      <div id="photo-modal-memo-container">
+        <textarea id="photo-modal-memo" placeholder="메모를 입력하세요..."></textarea>
+        <button type="button" id="photo-modal-save-btn">메모 저장</button>
+      </div>
     </div>
   </div>
 
