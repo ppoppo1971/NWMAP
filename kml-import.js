@@ -220,7 +220,8 @@
       currentInfoWindow = new google.maps.InfoWindow({
         content: html,
         position: event.latLng,
-        maxWidth: 320
+        maxWidth: 320,
+        disableAutoPan: true
       });
       currentInfoWindow.open(map);
     });
@@ -325,7 +326,8 @@
       _currentInfoWindow = new google.maps.InfoWindow({
         content: html,
         position: latLng,
-        maxWidth: 280
+        maxWidth: 280,
+        disableAutoPan: true
       });
       _currentInfoWindow.open(map, _longPressTempMarker);
 
@@ -796,7 +798,8 @@
         _currentInfoWindow = new google.maps.InfoWindow({
           content: html,
           position: latLng,
-          maxWidth: 320
+          maxWidth: 320,
+          disableAutoPan: true
         });
         _currentInfoWindow.open(map);
 
@@ -861,30 +864,27 @@
               return;
             }
             var idSuffix = 'kml_pt_' + pIdx;
+            var titleText = pt.title || '';
             var html =
-              '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;">' +
+              '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
               '<div style="margin-bottom:6px;">' +
-              '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">포인트 제목</label>' +
+              '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">제목</label>' +
               '<input id="kml-pt-title-' + idSuffix + '" type="text" ' +
               'style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px;" ' +
-              'value="' + (pt.title || '') + '">' +
+              'value="' + titleText + '">' +
               '</div>' +
-              '<div style="margin-bottom:8px;">' +
-              '<label style="display:block;font-size:12px;color:#4b5563;margin-bottom:2px;">설명</label>' +
-              '<textarea id="kml-pt-desc-' + idSuffix + '" ' +
-              'style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:13px;border:1px solid #e5e7eb;border-radius:6px;min-height:60px;">' +
-              (pt.description || '') + '</textarea>' +
-              '</div>' +
+              '<div style="display:flex;gap:6px;">' +
               '<button id="kml-pt-save-' + idSuffix + '" ' +
-              'style="width:100%;padding:8px 10px;border:none;border-radius:6px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;font-size:13px;font-weight:500;cursor:pointer;">속성 저장</button>' +
+              'style="flex:1;padding:8px 10px;border:none;border-radius:6px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:13px;font-weight:500;cursor:pointer;">저장</button>' +
+              '</div>' +
               '</div>';
 
             openInfoWindowAt(pos, html, function () {
               var saveBtn = document.getElementById('kml-pt-save-' + idSuffix);
               if (!saveBtn) return;
               saveBtn.addEventListener('click', function () {
-                var newTitle = document.getElementById('kml-pt-title-' + idSuffix).value.trim();
-                var newDesc = document.getElementById('kml-pt-desc-' + idSuffix).value.trim();
+                var titleInput = document.getElementById('kml-pt-title-' + idSuffix);
+                var newTitle = titleInput ? titleInput.value.trim() : '';
                 
                 if (!window.firestore || !window.db) return;
                 var fs = window.firestore;
@@ -895,7 +895,6 @@
                   var kmlData = snap.data();
                   if (kmlData && kmlData.shapes && Array.isArray(kmlData.shapes.points)) {
                     kmlData.shapes.points[pIdx].title = newTitle;
-                    kmlData.shapes.points[pIdx].description = newDesc;
                     return fs.setDoc(kmlRef, kmlData);
                   }
                 }).then(function () {
@@ -1161,13 +1160,16 @@
             var pos = event && event.latLng ? event.latLng : new google.maps.LatLng(pathLatLng[0].lat, pathLatLng[0].lng);
             var idSuffix = String(meta.siteId) + '_' + String(meta.index);
 
-            // 경로 전체 확대 (fitBounds)
+            // 경로 전체 확대 (setCenter, setZoom)
             if (google && google.maps) {
               var bounds = new google.maps.LatLngBounds();
               pathLatLng.forEach(function (p) { bounds.extend(p); });
-              map.fitBounds(bounds);
-              // snap to click point center if needed, but fitBounds is better for routes.
-              // To ensure instant snap, we can setCenter to midpoint first if requested.
+              var targetZoom = 20;
+              var currentZoom = map.getZoom();
+              if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
+                map.setZoom(targetZoom);
+              }
+              map.setCenter(bounds.getCenter());
             }
 
             var html =
@@ -1454,7 +1456,12 @@
       }
 
       if (hasAny) {
-        map.fitBounds(bounds);
+        var targetZoom = 20;
+        var currentZoom = map.getZoom();
+        if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
+          map.setZoom(targetZoom);
+        }
+        map.setCenter(bounds.getCenter());
       }
     }).catch(function (err) {
       console.error('현장 데이터 로딩 실패:', err);
