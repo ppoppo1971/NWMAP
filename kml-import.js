@@ -397,8 +397,8 @@
                   var canvas = document.createElement('canvas');
                   var ctx = canvas.getContext('2d');
                   
-                  // 최대 크기 800px로 제한
-                  var MAX_SIZE = 800;
+                  // 최대 크기 1200px로 제한 (고화질)
+                  var MAX_SIZE = 1200;
                   var width = img.width;
                   var height = img.height;
                   
@@ -418,11 +418,11 @@
                   canvas.height = height;
                   ctx.drawImage(img, 0, 0, width, height);
                   
-                  // 품질 0.5 (50%) 압축 적용
-                  var base64Data = canvas.toDataURL('image/jpeg', 0.5);
+                  // 품질 0.8 (80%) 적용
+                  var base64Data = canvas.toDataURL('image/jpeg', 0.8);
                   
-                  // 1MB Firestore 안전을 위해 대략적인 텍스트 크기 확인 (~333333 글자 이내)
-                  if (base64Data.length > 400000) {
+                  // 1MB Firestore 안전을 위해 텍스트 크기 확인 (약 85만 글자 이내)
+                  if (base64Data.length > 850000) {
                     alert('사진 용량이 너무 큽니다. Firestore 한도 방지를 위해 더 작은 사진을 선택해 주세요.');
                     return;
                   }
@@ -1949,7 +1949,8 @@
     renderFromFirestoreData: renderFromFirestoreData,
     renderSiteSummaryMarkers: renderSiteSummaryMarkers,
     focusSite: focusSite,
-    clearActiveSite: clearActiveSite
+    clearActiveSite: clearActiveSite,
+    getSelectedSiteId: function() { return _selectedSiteId; }
   };
 })(window.MWMAP);
 

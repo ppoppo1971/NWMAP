@@ -229,7 +229,8 @@ a[href^="https://maps.google.com/maps"],
 
 #map-type-inner-btn,
 #kml-import-btn,
-#add-route-btn {
+#add-route-btn,
+#export-photos-btn {
   width: 100%;
   min-height: 40px;
   box-sizing: border-box;
@@ -248,10 +249,12 @@ a[href^="https://maps.google.com/maps"],
 }
 #map-type-inner-btn:hover,
 #kml-import-btn:hover,
-#add-route-btn:hover { background: rgba(0, 0, 0, 0.08); }
+#add-route-btn:hover,
+#export-photos-btn:hover { background: rgba(0, 0, 0, 0.08); }
 #map-type-inner-btn:active,
 #kml-import-btn:active,
-#add-route-btn:active { transform: scale(0.98); }
+#add-route-btn:active,
+#export-photos-btn:active { transform: scale(0.98); }
 
 #project-panel-overlay {
   position: fixed;
@@ -397,6 +400,59 @@ a[href^="https://maps.google.com/maps"],
 }
 #add-site-btn:hover { transform: translateY(-1px); }
 #add-site-btn:active { transform: translateY(0) scale(0.98); }
+
+
+/* 좌표계 선택 모달 */
+#crs-select-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1500;
+  align-items: center;
+  justify-content: center;
+}
+#crs-select-overlay.show {
+  display: flex;
+}
+#crs-select-dialog {
+  background: #fff;
+  border-radius: 14px;
+  width: 260px;
+  max-width: 90vw;
+  padding: 18px 16px 14px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+#crs-select-dialog h3 {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-align: center;
+}
+.crs-option {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  background: #f3f4f6;
+  color: #1a1a1a;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s ease;
+}
+.crs-option:hover {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #fff;
+  border-color: transparent;
+}
+.crs-option:active { transform: scale(0.97); }
+.crs-option:last-child { margin-bottom: 0; }
 
 #add-site-overlay {
   position: fixed;
@@ -852,6 +908,7 @@ a[href^="https://maps.google.com/maps"],
       <button type="button" id="kml-import-btn" title="KML/KMZ 파일 가져오기">KML/KMZ 가져오기</button>
       <button type="button" id="add-route-btn" title="수동 경로 추가">경로추가</button>
       <button type="button" id="map-type-inner-btn" title="지도 종류 선택">MAP · 구글(도로)</button>
+      <button type="button" id="export-photos-btn">📷 사진내보내기</button>
     </div>
     <div id="project-panel-overlay" aria-hidden="true"></div>
     <div id="project-panel" class="hide">
@@ -939,11 +996,23 @@ a[href^="https://maps.google.com/maps"],
     </div>
   </div>
 
+  <!-- 좌표계 선택 모달 (사진 내보내기용) -->
+  <div id="crs-select-overlay" aria-hidden="true">
+    <div id="crs-select-dialog" role="dialog" aria-labelledby="crs-select-title">
+      <h3 id="crs-select-title">좌표계 선택</h3>
+      <button type="button" class="crs-option" data-crs="EPSG:5186">중부원점 (EPSG:5186)</button>
+      <button type="button" class="crs-option" data-crs="EPSG:5185">서부원점 (EPSG:5185)</button>
+      <button type="button" class="crs-option" data-crs="EPSG:5187">동부원점 (EPSG:5187)</button>
+      <button type="button" class="crs-option" data-crs="EPSG:5188">동해원점 (EPSG:5188)</button>
+    </div>
+  </div>
+
   <!-- 전역 설정 → Firebase 인라인 → 모듈 → 진입점 (분리 전 구조) -->
   <script src="config.js"></script>
   <!-- KML/KMZ → GeoJSON 변환용 라이브러리 (WMAP 참조) -->
   <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
   <script type="module">
     (function () {
       var C = window.MWMAP_CONFIG && window.MWMAP_CONFIG.FIREBASE;
@@ -982,6 +1051,7 @@ a[href^="https://maps.google.com/maps"],
   <script src="ui-map-type.js"></script>
   <script src="kml-import.js"></script>
   <script src="sites.js"></script>
+  <script src="photo-export.js"></script>
   <script src="app.js"></script>
   <!-- Google Maps API: callback=initMap 으로 진입 -->
   <script>
