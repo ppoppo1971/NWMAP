@@ -802,13 +802,16 @@
           disableAutoPan: true
         });
 
-        // 축척 조정: 현재 줌이 기준보다 작으면 확대 (기준 20)
         var targetZoom = 20;
-        var currentZoom = map.getZoom();
-        if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
-          map.setZoom(targetZoom);
+        if (typeof map.moveCamera === 'function') {
+          map.moveCamera({ center: latLng, zoom: targetZoom });
+        } else {
+          var currentZoom = map.getZoom();
+          if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
+            map.setZoom(targetZoom);
+          }
+          map.setCenter(latLng);
         }
-        map.setCenter(latLng);
         _currentInfoWindow.open(map);
 
         if (onDomReady && google && google.maps && google.maps.event) {
@@ -1193,16 +1196,20 @@
             var pos = event && event.latLng ? event.latLng : new google.maps.LatLng(pathLatLng[0].lat, pathLatLng[0].lng);
             var idSuffix = String(meta.siteId) + '_' + String(meta.index);
 
-            // 경로 전체 확대 (setCenter, setZoom)
+            // 경로 전체 확대 (moveCamera)
             if (google && google.maps) {
               var bounds = new google.maps.LatLngBounds();
               pathLatLng.forEach(function (p) { bounds.extend(p); });
               var targetZoom = 20;
-              var currentZoom = map.getZoom();
-              if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
-                map.setZoom(targetZoom);
+              if (typeof map.moveCamera === 'function') {
+                map.moveCamera({ center: bounds.getCenter(), zoom: targetZoom });
+              } else {
+                var currentZoom = map.getZoom();
+                if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
+                  map.setZoom(targetZoom);
+                }
+                map.setCenter(bounds.getCenter());
               }
-              map.setCenter(bounds.getCenter());
             }
 
             var html =
