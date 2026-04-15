@@ -801,7 +801,6 @@
           maxWidth: 320,
           disableAutoPan: true
         });
-        _currentInfoWindow.open(map);
 
         // 축척 조정: 현재 줌이 기준보다 작으면 확대 (기준 20)
         var targetZoom = 20;
@@ -810,6 +809,7 @@
           map.setZoom(targetZoom);
         }
         map.setCenter(latLng);
+        _currentInfoWindow.open(map);
 
         if (onDomReady && google && google.maps && google.maps.event) {
           google.maps.event.addListenerOnce(_currentInfoWindow, 'domready', function () {
@@ -876,6 +876,8 @@
               '<div style="display:flex;gap:6px;">' +
               '<button id="kml-pt-save-' + idSuffix + '" ' +
               'style="flex:1;padding:8px 10px;border:none;border-radius:6px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:13px;font-weight:500;cursor:pointer;">저장</button>' +
+              '<button id="kml-pt-delete-' + idSuffix + '" ' +
+              'style="flex:1;padding:8px 10px;border:none;border-radius:6px;background:#ef4444;color:#fff;font-size:13px;font-weight:500;cursor:pointer;">삭제</button>' +
               '</div>' +
               '</div>';
 
@@ -911,6 +913,37 @@
                   alert('포인트 정보를 저장하는 데 실패했습니다.');
                 });
               });
+
+              var deleteBtn = document.getElementById('kml-pt-delete-' + idSuffix);
+              if (deleteBtn) {
+                deleteBtn.addEventListener('click', function () {
+                  if (!confirm('이 포인트를 삭제하시겠습니까?')) return;
+                  if (!window.firestore || !window.db) return;
+                  var fs = window.firestore;
+                  var kmlRef = fs.doc(window.db, 'users', 'currentUser', 'schedules', _selectedSiteId, 'data', 'kml_doc');
+                  
+                  fs.getDoc(kmlRef).then(function (snap) {
+                    if (!snap || !snap.exists || !snap.exists()) return;
+                    var kmlData = snap.data();
+                    if (kmlData && kmlData.shapes && Array.isArray(kmlData.shapes.points)) {
+                      kmlData.shapes.points.splice(pIdx, 1);
+                      return fs.setDoc(kmlRef, kmlData);
+                    }
+                  }).then(function () {
+                    if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+                      MWMAP.sites.showSyncSuccessBadge();
+                    }
+                    if (_currentInfoWindow) {
+                      _currentInfoWindow.close();
+                      _currentInfoWindow = null;
+                    }
+                    focusSite(_selectedSiteId); // 맵 다시 그리기
+                  }).catch(function (err) {
+                    console.error('KML 포인트 삭제 실패:', err);
+                    alert('포인트를 삭제하는 데 실패했습니다.');
+                  });
+                });
+              }
             });
           });
         } else if (isBlockPoint && (pt.blockName || pt.title)) {
@@ -1456,12 +1489,7 @@
       }
 
       if (hasAny) {
-        var targetZoom = 20;
-        var currentZoom = map.getZoom();
-        if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
-          map.setZoom(targetZoom);
-        }
-        map.setCenter(bounds.getCenter());
+        map.fitBounds(bounds);
       }
     }).catch(function (err) {
       console.error('현장 데이터 로딩 실패:', err);

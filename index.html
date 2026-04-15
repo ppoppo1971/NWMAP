@@ -785,14 +785,20 @@ a[href^="https://maps.google.com/maps"],
   position: absolute;
   top: -40px;
   right: 0;
-  background: none;
-  border: none;
+  background: #000000;
+  border: 1px solid rgba(255,255,255,0.3);
   color: #ffffff;
-  font-size: 2.5rem;
+  font-size: 1.8rem;
   line-height: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  padding: 5px;
   z-index: 2001;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.5);
 }
 #photo-modal-memo-container {
   width: 100%;
@@ -807,14 +813,15 @@ a[href^="https://maps.google.com/maps"],
   padding: 10px;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.85);
   color: #fff;
   font-size: 0.95rem;
   resize: vertical;
   min-height: 60px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.5);
 }
 #photo-modal-memo::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
 }
 #photo-modal-save-btn {
   align-self: flex-end;
