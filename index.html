@@ -880,7 +880,7 @@ a[href^="https://maps.google.com/maps"],
   color: rgba(255, 255, 255, 0.6);
 }
 #photo-modal-save-btn {
-  align-self: flex-end;
+  flex: 1;
   padding: 8px 16px;
   background: #3b82f6;
   color: #fff;
@@ -892,6 +892,35 @@ a[href^="https://maps.google.com/maps"],
 }
 #photo-modal-save-btn:active {
   background: #2563eb;
+}
+#photo-modal-btn-row {
+  display: flex;
+  gap: 8px;
+  align-self: stretch;
+}
+#photo-modal-delete-btn {
+  flex: 1;
+  padding: 8px 16px;
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+#photo-modal-delete-btn:active {
+  background: #dc2626;
+}
+/* 사진 핀치줄 확대 지원 */
+#photo-modal-img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(255, 255, 255, 0.1);
+  touch-action: pinch-zoom;
+  cursor: zoom-in;
 }
 
   </style>
@@ -991,7 +1020,10 @@ a[href^="https://maps.google.com/maps"],
       <div id="photo-modal-title"></div>
       <div id="photo-modal-memo-container">
         <textarea id="photo-modal-memo" placeholder="메모를 입력하세요..."></textarea>
-        <button type="button" id="photo-modal-save-btn">메모 저장</button>
+        <div id="photo-modal-btn-row">
+          <button type="button" id="photo-modal-save-btn">메모 저장</button>
+          <button type="button" id="photo-modal-delete-btn">사진 삭제</button>
+        </div>
       </div>
     </div>
   </div>

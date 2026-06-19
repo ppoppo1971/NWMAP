@@ -120,22 +120,7 @@
         if (google && google.maps) {
           var bounds = new google.maps.LatLngBounds();
           pathLatLng.forEach(function (p) { bounds.extend(p); });
-          var targetZoom = 20;
-          var currentZoom = map.getZoom();
-          if (typeof map.moveCamera === 'function') {
-            if (typeof currentZoom !== 'number' || currentZoom < targetZoom) {
-              // zoom 20 미만일 때만 확대 이동
-              map.moveCamera({ center: bounds.getCenter(), zoom: targetZoom });
-            } else {
-              // 이미 zoom 20 이상이면 위치만 부드럽게 이동
-              map.panTo(bounds.getCenter());
-            }
-          } else {
-            if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
-              map.setZoom(targetZoom);
-            }
-            map.setCenter(bounds.getCenter());
-          }
+          map.fitBounds(bounds);
         }
 
         var html =
@@ -176,9 +161,7 @@
                 s.currentInfoWindow.close();
                 s.currentInfoWindow = null;
               }
-              if (MWMAP.kmlImport && typeof MWMAP.kmlImport.focusSite === 'function') {
-                MWMAP.kmlImport.focusSite(meta.siteId);
-              }
+              // onSnapshot이 자동으로 제거 — focusSite 호출 불필요 (줄 유지됨)
             }).catch(function (err) {
               console.error('수동 경로 삭제 실패:', err);
               alert('경로를 삭제하는 데 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
@@ -231,6 +214,10 @@
         s.manualRouteTempLine.setMap(null);
       }
       s.manualRouteTempLine = null;
+      if (s.manualRouteFirstPointMarker && s.manualRouteFirstPointMarker.setMap) {
+        s.manualRouteFirstPointMarker.setMap(null);
+      }
+      s.manualRouteFirstPointMarker = null;
       s.manualRoutePointsTemp = [];
       s.isManualRouteMode = false;
       if (s.mapClickManualRouteListener && google && google.maps && google.maps.event) {
@@ -245,7 +232,7 @@
       }
       s.selectedSiteId = siteId;
       if (MWMAP.kmlImport && typeof MWMAP.kmlImport.focusSite === 'function') {
-        MWMAP.kmlImport.focusSite(siteId);
+        MWMAP.kmlImport.focusSite(siteId, { keepZoom: true });
       }
     }).catch(function (err) {
       console.error('수동 경로 저장 실패:', err);
@@ -314,12 +301,25 @@
             s.manualRouteTempLine.setMap(null);
           }
           s.manualRouteTempLine = null;
+          if (s.manualRouteFirstPointMarker && s.manualRouteFirstPointMarker.setMap) {
+            s.manualRouteFirstPointMarker.setMap(null);
+          }
+          s.manualRouteFirstPointMarker = null;
           s.manualRoutePointsTemp = [];
         }
         return;
       }
 
       s.isManualRouteMode = true;
+      
+      // 사이드 패널 자동 닫기 추가
+      if (MWMAP.uiMapType && typeof MWMAP.uiMapType.closePanel === 'function') {
+        MWMAP.uiMapType.closePanel();
+      }
+      if (MWMAP.uiPanel && typeof MWMAP.uiPanel.closePanel === 'function') {
+        MWMAP.uiPanel.closePanel();
+      }
+
       manualRouteBtn.textContent = '경로추가 중...';
       manualRouteBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
       manualRouteBtn.style.color = '#ffffff';
@@ -344,6 +344,32 @@
 
         s.manualRoutePointsTemp.push({ lat: lat, lng: lng });
 
+        // 첫 번째 점인 경우 임시 숫자 "1" 표시 마커 생성
+        if (s.manualRoutePointsTemp.length === 1) {
+          if (s.manualRouteFirstPointMarker && s.manualRouteFirstPointMarker.setMap) {
+            s.manualRouteFirstPointMarker.setMap(null);
+          }
+          s.manualRouteFirstPointMarker = new google.maps.Marker({
+            map: map,
+            position: { lat: lat, lng: lng },
+            label: {
+              text: '1',
+              color: '#ffffff',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            },
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 12,
+              fillColor: '#f97316',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2
+            },
+            zIndex: 999
+          });
+        }
+
         if (s.manualRouteTempLine && s.manualRouteTempLine.setMap) {
           s.manualRouteTempLine.setMap(null);
         }
@@ -364,6 +390,7 @@
     renderManualRoutes: renderManualRoutes,
     saveManualRouteForSite: saveManualRouteForSite,
     openSiteSelectModalForManualRoute: openSiteSelectModalForManualRoute,
-    bindRouteButton: bindRouteButton
+    bindRouteButton: bindRouteButton,
+    computeRouteDistanceKm: computeRouteDistanceKm
   };
 })(window.MWMAP);

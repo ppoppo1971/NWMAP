@@ -84,6 +84,4 @@
     MWMAP.uiMapType = { bind: bind, closePanel: closePanel, updateMapButtonLabel: updateMapButtonLabel };
     updateMapButtonLabel();
   }
-
-  MWMAP.uiMapType = { bind: bind };
 })(window.MWMAP);

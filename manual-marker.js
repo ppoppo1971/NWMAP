@@ -61,6 +61,7 @@
       m.__manualMeta = { siteId: selectedSiteId, index: idx };
 
       m.addListener('click', function () {
+        if (getState().isManualRouteMode) return;
         if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
           window.MWMAP._skipOverlayClickOnce = false;
           return;
@@ -128,9 +129,7 @@
                   s.currentInfoWindow.close();
                   s.currentInfoWindow = null;
                 }
-                if (MWMAP.kmlImport && typeof MWMAP.kmlImport.focusSite === 'function') {
-                  MWMAP.kmlImport.focusSite(meta.siteId);
-                }
+                // onSnapshot이 자동으로 재렌더링 — focusSite 호출 불필요 (줄 유지됨)
               }).catch(function (err) {
                 console.error('수동 마커 정보 저장 실패:', err);
                 alert('마커 정보를 저장하는 데 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
@@ -159,9 +158,7 @@
                   s.currentInfoWindow.close();
                   s.currentInfoWindow = null;
                 }
-                if (MWMAP.kmlImport && typeof MWMAP.kmlImport.focusSite === 'function') {
-                  MWMAP.kmlImport.focusSite(meta.siteId);
-                }
+                // onSnapshot이 자동으로 마커 제거 — focusSite 호출 불필요 (줄 유지됨)
               }).catch(function (err) {
                 console.error('수동 마커 삭제 실패:', err);
                 alert('마커를 삭제하는 데 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');

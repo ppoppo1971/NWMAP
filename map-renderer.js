@@ -148,6 +148,7 @@
       marker.__siteId = site.id;
 
       marker.addListener('click', function () {
+        if (getState().isManualRouteMode) return;
         if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
           window.MWMAP._skipOverlayClickOnce = false;
           return;
@@ -178,6 +179,19 @@
     if (memo) {
       memo.value = markerData.description || '';
     }
+
+    // 더블탭 시 브라우저 네이티브 전체화면 제공
+    if (!img._photoZoomBound) {
+      img._photoZoomBound = true;
+      img.addEventListener('dblclick', function () {
+        if (img.requestFullscreen) {
+          img.requestFullscreen();
+        } else if (img.webkitRequestFullscreen) {
+          img.webkitRequestFullscreen();
+        }
+      });
+    }
+
     overlay.classList.add('show');
   }
 
@@ -297,6 +311,7 @@
       });
 
       marker.addListener('click', function () {
+        if (getState().isManualRouteMode) return;
         if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
           window.MWMAP._skipOverlayClickOnce = false;
           return;
@@ -344,6 +359,7 @@
         });
         if (isText) {
           markerPt.addListener('click', function () {
+            if (getState().isManualRouteMode) return;
             if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
               window.MWMAP._skipOverlayClickOnce = false;
               return;
@@ -392,9 +408,7 @@
                     s.currentInfoWindow.close();
                     s.currentInfoWindow = null;
                   }
-                  if (MWMAP.kmlImport && typeof MWMAP.kmlImport.focusSite === 'function') {
-                    MWMAP.kmlImport.focusSite(s.selectedSiteId);
-                  }
+                  // onSnapshot이 자동으로 재렌더링 — focusSite 호출 불필요 (줄 유지)
                 }).catch(function (err) {
                   console.error('KML 포인트 저장 실패:', err);
                   alert('포인트 정보를 저장하는 데 실패했습니다.');
@@ -424,9 +438,7 @@
                       s.currentInfoWindow.close();
                       s.currentInfoWindow = null;
                     }
-                    if (MWMAP.kmlImport && typeof MWMAP.kmlImport.focusSite === 'function') {
-                      MWMAP.kmlImport.focusSite(s.selectedSiteId);
-                    }
+                    // onSnapshot이 자동으로 제거 — focusSite 호출 불필요 (줄 유지)
                   }).catch(function (err) {
                     console.error('KML 포인트 삭제 실패:', err);
                     alert('포인트를 삭제하는 데 실패했습니다.');
@@ -437,6 +449,7 @@
           });
         } else if (isBlockPoint && (pt.blockName || pt.title)) {
           markerPt.addListener('click', function () {
+            if (getState().isManualRouteMode) return;
             if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
               window.MWMAP._skipOverlayClickOnce = false;
               return;
@@ -461,6 +474,26 @@
           strokeOpacity: 0.9,
           strokeWeight: 2
         });
+        
+        line.addListener('click', function (event) {
+          if (getState().isManualRouteMode) return;
+          
+          var lengthKm = 0;
+          if (MWMAP.manualRoute && typeof MWMAP.manualRoute.computeRouteDistanceKm === 'function') {
+            lengthKm = MWMAP.manualRoute.computeRouteDistanceKm(path);
+          }
+          
+          var pos = event && event.latLng ? event.latLng : new google.maps.LatLng(path[0].lat, path[0].lng);
+          var name = ln.title || 'KML 선 객체';
+          var html =
+            '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
+            '<div style="font-weight:700;font-size:14px;color:#111827;margin-bottom:4px;">' + name + '</div>' +
+            '<div style="font-size:13px;color:#4b5563;">길이: ' + lengthKm.toFixed(2) + ' km</div>' +
+            '</div>';
+            
+          openInfoWindowAt(pos, html, null);
+        });
+
         s.renderedLines.push(line);
       });
 

@@ -378,9 +378,10 @@
   // =============================================
   // focusSite: 현장 포커스 (실시간 구독 방식 — 방안 A)
   // =============================================
-  function focusSite(siteId) {
+  function focusSite(siteId, options) {
     var s = getState();
     if (!siteId) return;
+    var keepZoom = options && options.keepZoom;
     var map = MWMAP && MWMAP.map;
     if (!map) return;
     var fs = window.firestore;
@@ -421,7 +422,9 @@
         var mergedData = buildMergedData();
         s.latestData = mergedData;
         MWMAP.mapRenderer.renderFromFirestoreData(mergedData);
-        fitBoundsFromData(mergedData, siteId); // 초기 1회만 지도 범위 맞춤
+        if (!keepZoom) {
+          fitBoundsFromData(mergedData, siteId); // 초기 1회만 지도 범위 맞춤
+        }
       }
     }
 
@@ -727,10 +730,37 @@
             MWMAP.sites.showSyncSuccessBadge();
           }
           if (s.activePhotoData) s.activePhotoData.description = newMemo;
-          alert('메모가 저장되었습니다.');
+          // onSnapshot이 자동으로 음당을 갱신하므로 focusSite 불필요
+          MWMAP.mapRenderer.closePhotoModal();
         }).catch(function (err) {
           console.error('사진 메모 저장 실패:', err);
           alert('메모 저장에 실패했습니다.');
+        });
+      });
+    }
+
+    // 사진 모달 삭제 바인딩
+    var photoDeleteBtn = document.getElementById('photo-modal-delete-btn');
+    if (photoDeleteBtn) {
+      photoDeleteBtn.addEventListener('click', function () {
+        var s = getState();
+        if (!s.activePhotoSiteId || !s.activePhotoDocId) {
+          alert('삭제할 사진 정보가 올바르지 않습니다.');
+          return;
+        }
+        if (!window.firestore || !window.db) return;
+        var firestore = window.firestore;
+        var ref = firestore.doc(window.db, 'users', 'currentUser', 'schedules', s.activePhotoSiteId, 'photos', s.activePhotoDocId);
+
+        firestore.deleteDoc(ref).then(function () {
+          if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+            MWMAP.sites.showSyncSuccessBadge();
+          }
+          // 모달 닫기 — onSnapshot이 지도에서 자동으로 마커 제거
+          MWMAP.mapRenderer.closePhotoModal();
+        }).catch(function (err) {
+          console.error('사진 삭제 실패:', err);
+          alert('사진 삭제에 실패했습니다.');
         });
       });
     }
