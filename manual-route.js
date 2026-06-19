@@ -167,7 +167,7 @@
               alert('경로를 삭제하는 데 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
             });
           });
-        });
+        }, { skipPanAndZoom: true });
       });
 
       s.renderedManualRoutes.push(line);

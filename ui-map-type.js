@@ -7,6 +7,12 @@
  * - 모달에서 구글(도로/위성), 브이월드(도로/위성) 선택 시 지도 전환 및 MAP 버튼 라벨 갱신
  */
 (function (MWMAP) {
+  var uiMapType = {
+    bind: bind,
+    closePanel: null,
+    updateMapButtonLabel: null
+  };
+
   function bind() {
     var mapBtn = document.getElementById('map-type-btn');
     var panel = document.getElementById('map-type-panel');
@@ -81,7 +87,12 @@
       });
     });
 
-    MWMAP.uiMapType = { bind: bind, closePanel: closePanel, updateMapButtonLabel: updateMapButtonLabel };
+    // 바인딩 실행 후 내부 함수 레퍼런스 노출
+    uiMapType.closePanel = closePanel;
+    uiMapType.updateMapButtonLabel = updateMapButtonLabel;
+
     updateMapButtonLabel();
   }
+
+  MWMAP.uiMapType = uiMapType;
 })(window.MWMAP);

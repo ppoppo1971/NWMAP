@@ -53,10 +53,11 @@
    * - 줌 20으로 확대 후 열기
    * - 지도 클릭 시 자동 닫기 리스너 등록
    */
-  function openInfoWindowAt(latLng, html, onDomReady) {
+  function openInfoWindowAt(latLng, html, onDomReady, options) {
     var s = getState();
     var map = MWMAP.map;
     if (!latLng || !map) return;
+    var skipPanAndZoom = options && options.skipPanAndZoom;
 
     if (s.currentInfoWindow) {
       s.currentInfoWindow.close();
@@ -68,21 +69,23 @@
       disableAutoPan: true
     });
 
-    var targetZoom = 20;
-    var currentZoom = map.getZoom();
-    if (typeof map.moveCamera === 'function') {
-      if (typeof currentZoom !== 'number' || currentZoom < targetZoom) {
-        // zoom 20 미만일 때만 확대 이동
-        map.moveCamera({ center: latLng, zoom: targetZoom });
+    if (!skipPanAndZoom) {
+      var targetZoom = 20;
+      var currentZoom = map.getZoom();
+      if (typeof map.moveCamera === 'function') {
+        if (typeof currentZoom !== 'number' || currentZoom < targetZoom) {
+          // zoom 20 미만일 때만 확대 이동
+          map.moveCamera({ center: latLng, zoom: targetZoom });
+        } else {
+          // 이미 zoom 20 이상이면 위치만 부드럽게 이동
+          map.panTo(latLng);
+        }
       } else {
-        // 이미 zoom 20 이상이면 위치만 부드럽게 이동
-        map.panTo(latLng);
+        if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
+          map.setZoom(targetZoom);
+        }
+        map.setCenter(latLng);
       }
-    } else {
-      if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
-        map.setZoom(targetZoom);
-      }
-      map.setCenter(latLng);
     }
     s.currentInfoWindow.open(map);
 
@@ -478,6 +481,12 @@
         line.addListener('click', function (event) {
           if (getState().isManualRouteMode) return;
           
+          if (google && google.maps) {
+            var bounds = new google.maps.LatLngBounds();
+            path.forEach(function (p) { bounds.extend(p); });
+            map.fitBounds(bounds);
+          }
+
           var lengthKm = 0;
           if (MWMAP.manualRoute && typeof MWMAP.manualRoute.computeRouteDistanceKm === 'function') {
             lengthKm = MWMAP.manualRoute.computeRouteDistanceKm(path);
@@ -491,7 +500,7 @@
             '<div style="font-size:13px;color:#4b5563;">길이: ' + lengthKm.toFixed(2) + ' km</div>' +
             '</div>';
             
-          openInfoWindowAt(pos, html, null);
+          openInfoWindowAt(pos, html, null, { skipPanAndZoom: true });
         });
 
         s.renderedLines.push(line);
@@ -509,6 +518,26 @@
           fillColor: pg.color || '#2563eb',
           fillOpacity: 0.15
         });
+
+        poly.addListener('click', function (event) {
+          if (getState().isManualRouteMode) return;
+
+          if (google && google.maps) {
+            var bounds = new google.maps.LatLngBounds();
+            polyPath.forEach(function (p) { bounds.extend(p); });
+            map.fitBounds(bounds);
+          }
+
+          var name = pg.title || 'KML 면 객체';
+          var pos = event && event.latLng ? event.latLng : bounds.getCenter();
+          var html =
+            '<div style="padding:12px;max-width:280px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
+            '<div style="font-weight:700;font-size:14px;color:#111827;">' + name + '</div>' +
+            '</div>';
+            
+          openInfoWindowAt(pos, html, null, { skipPanAndZoom: true });
+        });
+
         s.renderedPolygons.push(poly);
       });
       }

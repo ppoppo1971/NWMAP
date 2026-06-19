@@ -224,7 +224,7 @@
       }
       s.selectedSiteId = siteId;
       if (MWMAP.kmlImport && typeof MWMAP.kmlImport.focusSite === 'function') {
-        MWMAP.kmlImport.focusSite(siteId);
+        MWMAP.kmlImport.focusSite(siteId, { keepZoom: true });
       }
     }).catch(function (err) {
       console.error('수동 마커 저장 실패:', err);
