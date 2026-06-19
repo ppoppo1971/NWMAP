@@ -69,10 +69,16 @@
     });
 
     var targetZoom = 20;
+    var currentZoom = map.getZoom();
     if (typeof map.moveCamera === 'function') {
-      map.moveCamera({ center: latLng, zoom: targetZoom });
+      if (typeof currentZoom !== 'number' || currentZoom < targetZoom) {
+        // zoom 20 미만일 때만 확대 이동
+        map.moveCamera({ center: latLng, zoom: targetZoom });
+      } else {
+        // 이미 zoom 20 이상이면 위치만 부드럽게 이동
+        map.panTo(latLng);
+      }
     } else {
-      var currentZoom = map.getZoom();
       if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
         map.setZoom(targetZoom);
       }

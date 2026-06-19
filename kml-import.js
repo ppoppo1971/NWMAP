@@ -10,6 +10,15 @@
 (function (MWMAP) {
   var S; // MWMAP._state 참조
 
+  // =============================================
+  // 현장 실시간 구독 상태 관리 (방안 A: onSnapshot)
+  // =============================================
+  var _activeSiteId = null;
+  var _siteDataCache = { kml: null, routes: null, photos: [] };
+  var _siteUnsubscribers = [];
+  var _renderDebounceTimer = null;
+  var _siteInitLoaded = { kml: false, routes: false, photos: false };
+
   function getState() {
     if (!S) S = MWMAP._state;
     return S;
@@ -234,9 +243,125 @@
   }
 
   // =============================================
+  // 실시간 구독 헬퍼 함수들
+  // =============================================
+
+  /** 현장 레벨 onSnapshot 리스너를 모두 해제 */
+  function unsubscribeSiteListeners() {
+    if (_renderDebounceTimer) {
+      clearTimeout(_renderDebounceTimer);
+      _renderDebounceTimer = null;
+    }
+    _siteUnsubscribers.forEach(function (unsub) {
+      if (typeof unsub === 'function') { try { unsub(); } catch (e) {} }
+    });
+    _siteUnsubscribers = [];
+  }
+
+  /** 캐시된 3가지 데이터를 renderFromFirestoreData 형식으로 조합 */
+  function buildMergedData() {
+    var s = getState();
+    var siteId = _activeSiteId;
+    var mergedData = {
+      customSchedules: s.sitesMeta,
+      kmlBySite: {},
+      manualMarkersBySite: {},
+      manualRoutesBySite: {}
+    };
+    if (_siteDataCache.kml) {
+      mergedData.kmlBySite[siteId] = _siteDataCache.kml;
+    }
+    if (_siteDataCache.routes) {
+      mergedData.manualRoutesBySite[siteId] = {
+        routes: _siteDataCache.routes.routes || []
+      };
+    }
+    if (_siteDataCache.photos.length) {
+      mergedData.manualMarkersBySite[siteId] = {
+        markers: _siteDataCache.photos
+      };
+    }
+    return mergedData;
+  }
+
+  /** 합쳐진 데이터에서 경계를 계산해 지도에 맞춤 (초기 로딩 시 1회만 호출) */
+  function fitBoundsFromData(mergedData, siteId) {
+    var map = MWMAP.map;
+    if (!map || !google || !google.maps) return;
+    var bounds = new google.maps.LatLngBounds();
+    var hasAny = false;
+
+    var kmlPayload = mergedData.kmlBySite && mergedData.kmlBySite[siteId];
+    if (kmlPayload && kmlPayload.shapes) {
+      var shapes = kmlPayload.shapes;
+      (shapes.points || []).forEach(function (pt) {
+        if (typeof pt.lat === 'number' && typeof pt.lng === 'number') {
+          bounds.extend(new google.maps.LatLng(pt.lat, pt.lng)); hasAny = true;
+        }
+      });
+      (shapes.lines || []).forEach(function (ln) {
+        (ln.path || []).forEach(function (p) {
+          if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+            bounds.extend(new google.maps.LatLng(p.lat, p.lng)); hasAny = true;
+          }
+        });
+      });
+      (shapes.polygons || []).forEach(function (pg) {
+        (pg.path || []).forEach(function (p) {
+          if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+            bounds.extend(new google.maps.LatLng(p.lat, p.lng)); hasAny = true;
+          }
+        });
+      });
+    }
+    _siteDataCache.photos.forEach(function (mm) {
+      if (typeof mm.lat === 'number' && typeof mm.lng === 'number') {
+        bounds.extend(new google.maps.LatLng(mm.lat, mm.lng)); hasAny = true;
+      }
+    });
+    var routesList = mergedData.manualRoutesBySite && mergedData.manualRoutesBySite[siteId];
+    if (routesList && Array.isArray(routesList.routes)) {
+      routesList.routes.forEach(function (rt) {
+        (rt.path || []).forEach(function (p) {
+          if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+            bounds.extend(new google.maps.LatLng(p.lat, p.lng)); hasAny = true;
+          }
+        });
+      });
+    }
+    if (hasAny) map.fitBounds(bounds);
+  }
+
+  /** Firebase 일일 할당량 초과 시 사용자에게 안내 */
+  function showQuotaExceededAlert() {
+    var badge = document.getElementById('sync-badge');
+    if (!badge) return;
+    badge.textContent = 'Firebase 일일 사용 한도 초과 — 자정 이후 자동 복구됩니다';
+    badge.classList.remove('hide', 'success', 'error');
+    badge.classList.add('error');
+  }
+
+  /** 팀원 변경 이벤트를 80ms 디바운스로 묶어 불필요한 재렌더링 방지 */
+  function scheduleReRender() {
+    if (_renderDebounceTimer) clearTimeout(_renderDebounceTimer);
+    _renderDebounceTimer = setTimeout(function () {
+      _renderDebounceTimer = null;
+      if (!_activeSiteId) return;
+      var s = getState();
+      var mergedData = buildMergedData();
+      s.latestData = mergedData;
+      MWMAP.mapRenderer.renderFromFirestoreData(mergedData);
+    }, 80);
+  }
+
+  // =============================================
   // 현장 활성화 해제
   // =============================================
   function clearActiveSite() {
+    unsubscribeSiteListeners();          // 실시간 리스너 해제
+    _activeSiteId = null;
+    _siteDataCache = { kml: null, routes: null, photos: [] };
+
     var s = getState();
     MWMAP.mapRenderer.clearRenderedFromFirestore();
     s.selectedSiteId = null;
@@ -251,7 +376,7 @@
   }
 
   // =============================================
-  // focusSite: 현장 포커스 (핵심 오케스트레이션)
+  // focusSite: 현장 포커스 (실시간 구독 방식 — 방안 A)
   // =============================================
   function focusSite(siteId) {
     var s = getState();
@@ -260,6 +385,12 @@
     if (!map) return;
     var fs = window.firestore;
     if (!fs || !window.db) return;
+
+    // 이전 현장의 실시간 리스너 해제 및 상태 초기화
+    unsubscribeSiteListeners();
+    _activeSiteId = siteId;
+    _siteDataCache = { kml: null, routes: null, photos: [] };
+    _siteInitLoaded = { kml: false, routes: false, photos: false };
 
     s.selectedSiteId = siteId;
 
@@ -280,106 +411,83 @@
     // 기존 세부 렌더링 제거
     MWMAP.mapRenderer.clearRenderedFromFirestore();
 
-    // 서브컬렉션에서 데이터 가져오기
     var kmlRef = fs.doc(window.db, 'users', 'currentUser', 'schedules', siteId, 'data', 'kml_doc');
     var routesRef = fs.doc(window.db, 'users', 'currentUser', 'schedules', siteId, 'data', 'routes_doc');
     var photosColRef = fs.collection(window.db, 'users', 'currentUser', 'schedules', siteId, 'photos');
 
-    Promise.all([
-      fs.getDoc(kmlRef).catch(function () { return null; }),
-      fs.getDoc(routesRef).catch(function () { return null; }),
-      fs.getDocs(photosColRef).catch(function () { return null; })
-    ]).then(function (results) {
-      var kmlSnap = results[0];
-      var routesSnap = results[1];
-      var photosSnap = results[2];
-
-      var mergedData = {
-        customSchedules: s.sitesMeta,
-        kmlBySite: {},
-        manualMarkersBySite: {},
-        manualRoutesBySite: {}
-      };
-
-      if (kmlSnap && kmlSnap.exists && kmlSnap.exists()) {
-        mergedData.kmlBySite[siteId] = kmlSnap.data();
+    /** KML·경로·사진 3개 리스너가 모두 첫 응답을 받으면 렌더링 + 지도 범위 맞춤 */
+    function checkAllInitialLoaded() {
+      if (_siteInitLoaded.kml && _siteInitLoaded.routes && _siteInitLoaded.photos) {
+        var mergedData = buildMergedData();
+        s.latestData = mergedData;
+        MWMAP.mapRenderer.renderFromFirestoreData(mergedData);
+        fitBoundsFromData(mergedData, siteId); // 초기 1회만 지도 범위 맞춤
       }
+    }
 
-      if (routesSnap && routesSnap.exists && routesSnap.exists()) {
-        var routesData = routesSnap.data() || {};
-        mergedData.manualRoutesBySite[siteId] = {
-          routes: routesData.routes || []
-        };
+    /** 구독 오류 공통 처리 (할당량 초과 시 안내) */
+    function handleSnapshotError(err) {
+      if (err && err.code === 'resource-exhausted') {
+        showQuotaExceededAlert();
+      } else {
+        console.warn('현장 데이터 실시간 구독 실패:', err);
       }
+    }
 
-      var photoMarkers = [];
-      if (photosSnap && photosSnap.forEach) {
-        photosSnap.forEach(function (docSnap) {
-          var d = docSnap.data();
-          if (d) {
-            d.__photoDocId = docSnap.id;
-            photoMarkers.push(d);
-          }
-        });
-      }
-      if (photoMarkers.length) {
-        mergedData.manualMarkersBySite[siteId] = { markers: photoMarkers };
-      }
-
-      s.latestData = mergedData;
-
-      // 데이터에 기반해 지도 렌더링
-      MWMAP.mapRenderer.renderFromFirestoreData(mergedData);
-
-      // 지도 범위 조정
-      var bounds = new google.maps.LatLngBounds();
-      var hasAny = false;
-
-      var kmlPayload = mergedData.kmlBySite[siteId];
-      if (kmlPayload && kmlPayload.shapes) {
-        var shapes = kmlPayload.shapes;
-        (shapes.points || []).forEach(function (pt) {
-          if (typeof pt.lat === 'number' && typeof pt.lng === 'number') {
-            bounds.extend(new google.maps.LatLng(pt.lat, pt.lng)); hasAny = true;
-          }
-        });
-        (shapes.lines || []).forEach(function (ln) {
-          (ln.path || []).forEach(function (p) {
-            if (typeof p.lat === 'number' && typeof p.lng === 'number') {
-              bounds.extend(new google.maps.LatLng(p.lat, p.lng)); hasAny = true;
-            }
-          });
-        });
-        (shapes.polygons || []).forEach(function (pg) {
-          (pg.path || []).forEach(function (p) {
-            if (typeof p.lat === 'number' && typeof p.lng === 'number') {
-              bounds.extend(new google.maps.LatLng(p.lat, p.lng)); hasAny = true;
-            }
-          });
-        });
-      }
-      photoMarkers.forEach(function (mm) {
-        if (typeof mm.lat === 'number' && typeof mm.lng === 'number') {
-          bounds.extend(new google.maps.LatLng(mm.lat, mm.lng)); hasAny = true;
+    // KML 도면 실시간 구독
+    var unsubKml = fs.onSnapshot(kmlRef,
+      function (snap) {
+        _siteDataCache.kml = (snap && snap.exists && snap.exists()) ? snap.data() : null;
+        if (!_siteInitLoaded.kml) {
+          _siteInitLoaded.kml = true;
+          checkAllInitialLoaded();
+        } else {
+          scheduleReRender(); // 팀원 변경 사항 → 80ms 후 자동 갱신
         }
-      });
-      var routesList = mergedData.manualRoutesBySite[siteId];
-      if (routesList && Array.isArray(routesList.routes)) {
-        routesList.routes.forEach(function (rt) {
-          (rt.path || []).forEach(function (p) {
-            if (typeof p.lat === 'number' && typeof p.lng === 'number') {
-              bounds.extend(new google.maps.LatLng(p.lat, p.lng)); hasAny = true;
+      },
+      handleSnapshotError
+    );
+
+    // 수동 경로 실시간 구독
+    var unsubRoutes = fs.onSnapshot(routesRef,
+      function (snap) {
+        _siteDataCache.routes = (snap && snap.exists && snap.exists()) ? snap.data() : null;
+        if (!_siteInitLoaded.routes) {
+          _siteInitLoaded.routes = true;
+          checkAllInitialLoaded();
+        } else {
+          scheduleReRender();
+        }
+      },
+      handleSnapshotError
+    );
+
+    // 사진 / 수동 마커 실시간 구독
+    var unsubPhotos = fs.onSnapshot(photosColRef,
+      function (snap) {
+        var photoMarkers = [];
+        if (snap && snap.forEach) {
+          snap.forEach(function (docSnap) {
+            var d = docSnap.data();
+            if (d) {
+              d.__photoDocId = docSnap.id;
+              photoMarkers.push(d);
             }
           });
-        });
-      }
+        }
+        _siteDataCache.photos = photoMarkers;
+        if (!_siteInitLoaded.photos) {
+          _siteInitLoaded.photos = true;
+          checkAllInitialLoaded();
+        } else {
+          scheduleReRender();
+        }
+      },
+      handleSnapshotError
+    );
 
-      if (hasAny) {
-        map.fitBounds(bounds);
-      }
-    }).catch(function (err) {
-      console.error('현장 데이터 로딩 실패:', err);
-    });
+    // 세 리스너를 배열에 등록 — clearActiveSite / 현장 전환 시 일괄 해제
+    _siteUnsubscribers = [unsubKml, unsubRoutes, unsubPhotos];
   }
 
   // =============================================

@@ -82,16 +82,8 @@
         strokeColor: '#f97316',
         strokeOpacity: 0.95,
         strokeWeight: 5,
-        zIndex: 20
-      });
-
-      var dottedLine = new google.maps.Polyline({
-        map: map,
-        path: pathLatLng,
-        strokeColor: '#ffffff',
-        strokeOpacity: 0,
-        strokeWeight: 0,
-        zIndex: 21,
+        zIndex: 20,
+        // 점선 오버레이를 icons 속성으로 통합 (폴리선 2개 → 1개, 시각 동일)
         icons: [{
           icon: {
             path: google.maps.SymbolPath.CIRCLE,
@@ -107,7 +99,6 @@
       });
 
       line.__manualRouteMeta = { siteId: selectedSiteId, index: rIdx };
-      line.__dottedOverlay = dottedLine;
 
       line.addListener('click', function (event) {
         if (window.MWMAP && window.MWMAP._skipOverlayClickOnce) {
@@ -130,10 +121,16 @@
           var bounds = new google.maps.LatLngBounds();
           pathLatLng.forEach(function (p) { bounds.extend(p); });
           var targetZoom = 20;
+          var currentZoom = map.getZoom();
           if (typeof map.moveCamera === 'function') {
-            map.moveCamera({ center: bounds.getCenter(), zoom: targetZoom });
+            if (typeof currentZoom !== 'number' || currentZoom < targetZoom) {
+              // zoom 20 미만일 때만 확대 이동
+              map.moveCamera({ center: bounds.getCenter(), zoom: targetZoom });
+            } else {
+              // 이미 zoom 20 이상이면 위치만 부드럽게 이동
+              map.panTo(bounds.getCenter());
+            }
           } else {
-            var currentZoom = map.getZoom();
             if (typeof currentZoom === 'number' && currentZoom < targetZoom) {
               map.setZoom(targetZoom);
             }
@@ -191,7 +188,7 @@
       });
 
       s.renderedManualRoutes.push(line);
-      s.renderedManualRoutes.push(dottedLine);
+      // 통합된 단일 Polyline으로 대체되어 push 1회만 호출
     });
   }
 
