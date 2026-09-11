@@ -211,26 +211,28 @@ a[href^="https://maps.google.com/maps"],
   position: absolute;
   top: 20px; right: 15px; left: auto;
   z-index: 15;
-  width: 200px;
+  width: 235px;
   max-width: 85vw;
-  max-height: 70vh;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  max-height: 75vh;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  padding: 15px 12px 12px 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  padding: 14px 12px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   transition: all 0.3s ease;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
 }
-#map-type-panel.hide { right: -220px; opacity: 0; pointer-events: none; }
+#map-type-panel.hide { right: -255px; opacity: 0; pointer-events: none; }
 
 #map-type-inner-btn,
 #kml-import-btn,
@@ -276,18 +278,18 @@ a[href^="https://maps.google.com/maps"],
   position: absolute;
   top: 20px; left: 15px;
   z-index: 15;
-  width: 235px;
+  width: 200px;
   max-width: 85vw;
   /* 모바일에서 너무 길게 늘어나지 않도록, 화면의 약 3/4 높이로 제한 */
-  max-height: 75vh;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  max-height: 70vh;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-  padding: 14px 12px 12px 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  padding: 15px 12px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   transition: all 0.3s ease;
   overflow: hidden;
@@ -301,12 +303,12 @@ a[href^="https://maps.google.com/maps"],
   font-size: 1rem;
   font-weight: 700;
   color: #1f2937;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 사진 저장 방식 설정 섹션 */
+/* 사진 저장 방식 설정 섹션 (오른쪽 패널 내 배치) */
 #photo-storage-section {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -315,7 +317,7 @@ a[href^="https://maps.google.com/maps"],
   display: flex;
   flex-direction: column;
   gap: 5px;
-  margin-bottom: 1px;
+  margin-top: 2px;
 }
 .storage-section-title {
   font-size: 0.78rem;
@@ -407,7 +409,7 @@ a[href^="https://maps.google.com/maps"],
   overscroll-behavior: contain;
   scroll-behavior: smooth;
 }
-#project-panel.hide { left: -255px; opacity: 0; pointer-events: none; }
+#project-panel.hide { left: -220px; opacity: 0; pointer-events: none; }
 
 #project-sites-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 
@@ -875,9 +877,9 @@ a[href^="https://maps.google.com/maps"],
   #project-btn { top: max(15px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); width: 44px; height: 44px; font-size: 1.3rem; }
   #map-type-btn { top: max(15px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); width: 44px; height: 44px; font-size: 1.3rem; }
   #project-panel { top: 15px; left: 10px; }
-  #project-panel.hide { left: -255px; }
+  #project-panel.hide { left: -220px; }
   #map-type-panel { top: 15px; right: 10px; }
-  #map-type-panel.hide { right: -220px; }
+  #map-type-panel.hide { right: -255px; }
 }
 
 /* 수정버전 확인용 라벨 (화면 아래 중앙) */
@@ -1036,11 +1038,7 @@ a[href^="https://maps.google.com/maps"],
       <button type="button" id="add-route-btn" title="수동 경로 추가">경로추가</button>
       <button type="button" id="map-type-inner-btn" title="지도 종류 선택">MAP · 구글(도로)</button>
       <button type="button" id="export-photos-btn">📷 사진내보내기</button>
-    </div>
-    <div id="project-panel-overlay" aria-hidden="true"></div>
-    <div id="project-panel" class="hide">
-      <div id="project-panel-title">WOORI MAP</div>
-      <!-- 사진 저장 방식 메뉴 -->
+      <!-- 사진 저장 방식 메뉴 (오른쪽 사이드바 위치) -->
       <div id="photo-storage-section">
         <div class="storage-section-title">사진 저장 방식</div>
         <div class="storage-options">
@@ -1074,6 +1072,10 @@ a[href^="https://maps.google.com/maps"],
           </div>
         </div>
       </div>
+    </div>
+    <div id="project-panel-overlay" aria-hidden="true"></div>
+    <div id="project-panel" class="hide">
+      <div id="project-panel-title">WOORI MAP</div>
       <div id="project-panel-search">
         <input type="text" id="address-input" placeholder="위치검색" autocomplete="off">
       </div>
