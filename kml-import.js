@@ -190,8 +190,11 @@
                   // 품질 0.7 (70%) 적용 (용량 초과 방지 및 선명한 화질 유지)
                   var base64Data = canvas.toDataURL('image/jpeg', 0.7);
                   
-                  // 1MB Firestore 안전을 위해 텍스트 크기 확인 (약 85만 글자 이내)
-                  if (base64Data.length > 850000) {
+                  // 내부메모리 저장 모드 여부 확인
+                  var isInternalMode = (MWMAP.localFs && MWMAP.localFs.getStorageMode() === 'internal');
+
+                  // 1MB Firestore 안전 크기 확인 (파이어베이스 모드일 때만 적용)
+                  if (!isInternalMode && base64Data.length > 850000) {
                     alert('사진 용량이 너무 큽니다. Firestore 한도 방지를 위해 더 작은 사진을 선택해 주세요.');
                     return;
                   }
@@ -205,19 +208,47 @@
                     s.longPressTempMarker = null;
                   }
 
-                  var markers = [{
-                    lat: lat,
-                    lng: lng,
-                    title: '사진 메모',
-                    description: '',
-                    isPhoto: true,
-                    base64Data: base64Data,
-                    createdAt: new Date().toISOString()
-                  }];
-                  if (s.selectedSiteId) {
-                    MWMAP.manualMarker.saveManualMarkersForSite(s.selectedSiteId, markers);
+                  if (isInternalMode) {
+                    var activeSiteId = s.selectedSiteId;
+                    if (!activeSiteId) {
+                      alert('사진을 저장할 현장을 먼저 선택해 주세요.\n(프로젝트 패널에서 현장을 선택하거나 추가해 주세요)');
+                      return;
+                    }
+                    var siteName = (MWMAP.sites && typeof MWMAP.sites.getSiteTitle === 'function')
+                      ? MWMAP.sites.getSiteTitle(activeSiteId)
+                      : activeSiteId;
+
+                    MWMAP.localFs.savePhotoToInternalStorage(activeSiteId, siteName, {
+                      lat: lat,
+                      lng: lng,
+                      base64Data: base64Data,
+                      memo: ''
+                    }).then(function (savedMarker) {
+                      if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+                        MWMAP.sites.showSyncSuccessBadge();
+                      }
+                      if (MWMAP.manualMarker && typeof MWMAP.manualMarker.renderLocalMarkers === 'function') {
+                        MWMAP.manualMarker.renderLocalMarkers(activeSiteId);
+                      }
+                    }).catch(function (err) {
+                      console.error('[kml-import] 내부메모리 사진 저장 실패:', err);
+                      alert('내부메모리 사진 저장 실패: ' + (err.message || err));
+                    });
                   } else {
-                    MWMAP.manualMarker.openSiteSelectModalForManualMarkers(markers);
+                    var markers = [{
+                      lat: lat,
+                      lng: lng,
+                      title: '사진 메모',
+                      description: '',
+                      isPhoto: true,
+                      base64Data: base64Data,
+                      createdAt: new Date().toISOString()
+                    }];
+                    if (s.selectedSiteId) {
+                      MWMAP.manualMarker.saveManualMarkersForSite(s.selectedSiteId, markers);
+                    } else {
+                      MWMAP.manualMarker.openSiteSelectModalForManualMarkers(markers);
+                    }
                   }
                 };
                 img.src = event.target.result;
@@ -715,6 +746,24 @@
         var s = getState();
         var memoEl = document.getElementById('photo-modal-memo');
         var newMemo = memoEl ? memoEl.value.trim() : '';
+
+        // 로컬 내부메모리 사진인 경우
+        if (s.activePhotoData && s.activePhotoData.isLocalFs) {
+          if (MWMAP.localFs && typeof MWMAP.localFs.updatePhotoMemo === 'function') {
+            MWMAP.localFs.updatePhotoMemo(s.activePhotoSiteId, s.activePhotoData.id, newMemo).then(function () {
+              if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+                MWMAP.sites.showSyncSuccessBadge();
+              }
+              if (s.activePhotoData) s.activePhotoData.description = newMemo;
+              MWMAP.mapRenderer.closePhotoModal();
+            }).catch(function (err) {
+              console.error('로컬 사진 메모 저장 실패:', err);
+              alert('메모 저장에 실패했습니다.');
+            });
+          }
+          return;
+        }
+
         if (!s.activePhotoSiteId || !s.activePhotoDocId) {
           alert('수정할 사진 정보가 올바르지 않습니다.');
           return;
@@ -744,6 +793,27 @@
     if (photoDeleteBtn) {
       photoDeleteBtn.addEventListener('click', function () {
         var s = getState();
+
+        // 로컬 내부메모리 사진인 경우
+        if (s.activePhotoData && s.activePhotoData.isLocalFs) {
+          if (!confirm('이 사진을 내부메모리에서 삭제하시겠습니까?')) return;
+          if (MWMAP.localFs && typeof MWMAP.localFs.deletePhoto === 'function') {
+            MWMAP.localFs.deletePhoto(s.activePhotoSiteId, s.activePhotoData.id).then(function () {
+              if (MWMAP.sites && typeof MWMAP.sites.showSyncSuccessBadge === 'function') {
+                MWMAP.sites.showSyncSuccessBadge();
+              }
+              MWMAP.mapRenderer.closePhotoModal();
+              if (s.selectedSiteId && MWMAP.kmlImport && typeof MWMAP.kmlImport.focusSite === 'function') {
+                MWMAP.kmlImport.focusSite(s.selectedSiteId, { keepZoom: true });
+              }
+            }).catch(function (err) {
+              console.error('로컬 사진 삭제 실패:', err);
+              alert('사진 삭제에 실패했습니다.');
+            });
+          }
+          return;
+        }
+
         if (!s.activePhotoSiteId || !s.activePhotoDocId) {
           alert('삭제할 사진 정보가 올바르지 않습니다.');
           return;

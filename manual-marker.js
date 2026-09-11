@@ -28,6 +28,50 @@
     if (overlay) overlay.classList.remove('show');
   }
 
+  var _renderedLocalMarkerKeys = {};
+
+  /**
+   * 로컬 내부메모리에 저장된 사진 마커들을 지도에 렌더링
+   */
+  function renderLocalMarkers(selectedSiteId) {
+    var s = getState();
+    var map = MWMAP.map;
+    if (!map || !selectedSiteId || !MWMAP.localFs) return;
+
+    MWMAP.localFs.getLocalMarkersForSite(selectedSiteId).then(function (localList) {
+      if (!Array.isArray(localList) || !localList.length) return;
+      localList.forEach(function (mm, idx) {
+        if (!mm || typeof mm.lat !== 'number' || typeof mm.lng !== 'number') return;
+        var key = String(selectedSiteId) + '_' + String(mm.id || idx);
+        if (_renderedLocalMarkerKeys[key]) return;
+
+        var mPos = { lat: mm.lat, lng: mm.lng };
+        var m = new google.maps.Marker({
+          map: map,
+          position: mPos,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 5.0,
+            fillColor: '#10b981', // 내부메모리 사진 마커: 에메랄드 초록
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 1.5
+          },
+          title: mm.title || (mm.fileName || '내부저장 사진')
+        });
+        _renderedLocalMarkerKeys[key] = m;
+        m.addListener('click', function () {
+          if (MWMAP.mapRenderer && typeof MWMAP.mapRenderer.openPhotoModal === 'function') {
+            MWMAP.mapRenderer.openPhotoModal(mm);
+          }
+        });
+        s.renderedManualMarkers.push(m);
+      });
+    }).catch(function (err) {
+      console.warn('[manualMarker] 로컬 마커 로드 실패:', err);
+    });
+  }
+
   /**
    * 선택된 현장의 수동 마커들을 지도에 렌더링
    * (map-renderer.js의 renderFromFirestoreData에서 호출됨)
@@ -35,8 +79,12 @@
   function renderManualMarkers(data, selectedSiteId) {
     var s = getState();
     var map = MWMAP.map;
-    if (!map) return;
+    if (!map || !selectedSiteId) return;
 
+    // 1) 내부메모리 사진 마커 병합 렌더링
+    renderLocalMarkers(selectedSiteId);
+
+    // 2) Firestore 마커 렌더링
     var manualMarkersBySite = (data && data.manualMarkersBySite && typeof data.manualMarkersBySite === 'object')
       ? data.manualMarkersBySite
       : null;
@@ -210,6 +258,7 @@
         if (m && m.setMap) m.setMap(null);
       });
       s.renderedManualMarkers = [];
+      _renderedLocalMarkerKeys = {};
       s.manualMarkersTemp = [];
       s.isManualMarkerMode = false;
       if (s.mapClickManualListener && google && google.maps && google.maps.event) {
@@ -261,6 +310,7 @@
 
   MWMAP.manualMarker = {
     renderManualMarkers: renderManualMarkers,
+    renderLocalMarkers: renderLocalMarkers,
     saveManualMarkersForSite: saveManualMarkersForSite,
     openSiteSelectModalForManualMarkers: openSiteSelectModalForManualMarkers
   };

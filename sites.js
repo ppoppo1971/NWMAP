@@ -433,6 +433,18 @@
 
   MWMAP.sites = {
     bind: bind,
-    showSyncSuccessBadge: showSyncSuccessBadge
+    showSyncSuccessBadge: showSyncSuccessBadge,
+    getSiteTitle: function (siteId) {
+      if (!_cachedSchedules || !siteId) return '';
+      for (var i = 0; i < _cachedSchedules.length; i++) {
+        if (_cachedSchedules[i].id === siteId) {
+          return _cachedSchedules[i].title || _cachedSchedules[i].name || '';
+        }
+      }
+      return '';
+    },
+    getCachedSites: function () {
+      return _cachedSchedules || [];
+    }
   };
 })(window.MWMAP);
